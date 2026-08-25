@@ -11,10 +11,11 @@
 
 ## 2. 当前进度
 
-- [x] 项目脚手架建成：/mnt/e/AIworkspace/relic（AGENTS.md、interaction/、output/）
-- [x] git 仓库初始化（原子提交：结构 + 本文件）
-- [ ] 架构设计（下一 session 任务，见「交接说明」）
-- [ ] 首个可运行能力（待架构设计确定）
+- [x] 项目脚手架建成：/mnt/e/AIworkspace/relic（AGENTS.md、interaction/、output/、.gitignore、.gitattributes），git main 分支 2 个原子提交
+- [x] 差距分析完成：读完 agent-governance 全部源码，产出 4 支柱缺口矩阵 + 3 个前身 bug 清单
+- [x] 地基方案产出（规划 agent 8m46s 决策完备）：schema v2 + ajv 检具 + 3 平台快换夹头 + bug 修复 + TDD，11 任务 5 波次
+- [ ] 地基实施：方案已向用户展示，待批准 F1（是否丢弃 hook 枚举）+ go 开干
+- [ ] 人设功能 / Codex/Cursor 适配器 / 模块化系统（地基之后）
 
 ## 3. 关键决策
 
@@ -23,6 +24,9 @@
 - 结论：output/ 初始为空（无 v1）。理由：版本目录在有产物时才创建，禁止空版本。
 - 结论：仓库添加 .gitattributes 固定 LF 换行。理由：仓库位于 Windows 挂载盘（/mnt/e），防 WSL/Windows 工具链换行符漂移。
 - 结论：开发期间不改动 ~/.config/opencode/agent-governance/ 现网配置。理由：它是当前 OpenCode 运行时治理的生效来源，迁移需待架构设计后专项决策。
+- 结论：地基先行（schema v2 权威 + ajv 自动检具 + 平台适配器快换夹头），人设/Codex/Cursor/模块化延后。理由：地基晃则配件松，先固地基再装配件。
+- 结论：relic 重新实现前身概念，不拷贝前身文件打补丁。理由：避免带入前身 bug，且新结构干净。
+- 结论：本阶段不引入 TypeScript，沿用前身 .mjs + JSDoc 工具链。理由：不增编译步骤，迭代快；TS 迁移记为未来选项。
 
 ## 4. 已知约束
 
@@ -43,14 +47,23 @@
 ## 6. 交接说明
 
 **上轮做了**：
-- 按已批准方案创建项目脚手架（目录 + AGENTS.md + git 初始化与 2 个原子提交），未写任何功能代码，未触碰 agent-governance 现网配置。
+- 建成 relic 脚手架（目录 + AGENTS.md + git main 2 提交），未写功能代码，未碰现网 agent-governance。
+- 读完 agent-governance 全部源码（policies.yaml/schema.json/generate.mjs/install.sh/lib 两文件/skills 两文件/README），产出差距分析：4 支柱缺口（可插拔/跨平台/长期演进/persona）+ 3 个前身 bug（/permission 加 bash 规则静默失败、hook 死代码、schema 非权威）。
+- 调规划 agent 产出地基实施方案（8m46s 决策完备）：11 任务 5 波次——schema.json v2（含 personas/modules 槽位、删 hook 枚举）、validator(ajv)、loader、permission-map、conflict、inject、agents-md 渲染器、3 平台适配器(opencode/omo/claude)、orchestrator、index.mjs、TDD 测试套件、AGENTS.md 更新。3 bug 在重写中修复。
+- 用工科通用语言向用户解释了整个地基方案架构。
 
 **下轮该做**：
-- 架构设计 session：明确 relic 的源格式（policies.yaml 演进 or 新格式）、多平台生成器目标（第一平台 OpenCode，第二平台选型待定）、rules/workflows/persona 的建模与组件划分、对 agent-governance 的复用 vs 重写边界。产出设计文档入 output/v1/。建议 TDD：先定 schema 与校验测试，再写生成器代码。
+- 等用户对 F1 拍板（丢弃 hook 枚举？规划推荐丢弃）+ go 信号。
+- 执行地基 W1→W5：W1 package.json+schema+fixtures → W2 validator/loader/conflict/agents-md/adapter-base → W3 三适配器+inject → W4 orchestrator+index → W5 AGENTS.md 更新+提交。每波次间跑 `node --test` 验证，失败即停。
+- 地基完成后再谈：人设功能、Codex/Cursor 适配器、模块/pack 系统。
 
 **待澄清**：
+- F1（主线，待用户拍板）：是否丢弃 enforcement:hook 枚举？规划推荐丢弃（死代码、只支持 block、deny 已可由 runtime+deny 表达）。
+- F2（次要）：bash 规则是否必须带 patterns（保留前身语义）？默认保留。
+- F3（次要）：Claude 全局安装路径 ~/.claude/AGENTS.md？默认是。
 - 迁移策略：relic 成熟后是原地替换 agent-governance、软链过渡，还是长期共存？
-- 第二个目标平台是哪个（Claude Code / Codex / Cursor）？
-- persona/人设的范畴边界（语气风格？行为偏好？记忆？）？
+- 第二个目标平台是哪个（Codex/Cursor，地基之后做）？
+- persona 范畴边界（语气风格？行为偏好？记忆？）——地基只留 schema 槽位。
 - agent-governance 中的 skills/（workflow、permission）是否随迁入 relic？
 - output/ 版本产物是否纳入 git 跟踪（当前默认跟踪）？
+- ⚠ 地基方案完整 11 任务详情在本 session 对话里，未落盘成文件。下 session 若要直接续建，建议先把它存到 relic/output/v1/foundation-plan.md（待用户指示）。
