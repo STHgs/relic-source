@@ -1,0 +1,125 @@
+# relic policies.yaml v2 — 初始最小可用样本
+# 这是 relic 自带的示例规则册。你可以基于它扩展。
+# 格式说明见 schema.json；用 `npm run generate` 生成各平台配置。
+
+meta:
+  version: 2
+  description: relic 初始最小可用 policies（示例，可自行扩展）
+  evaluation: 按风险分级判断，避免消极回避
+
+permissions:
+  - id: sudo-ask
+    intent: Require confirmation before privilege escalation
+    applies_to: [primary, deep]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "sudo *"
+        action: ask
+      - pattern: "su *"
+        action: ask
+      - pattern: "doas *"
+        action: ask
+    action: ask
+    alternatives:
+      - Run without sudo when no privilege needed
+
+  - id: disk-destruct-deny
+    intent: Block destructive disk operations that can wipe the environment
+    applies_to: [all]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "rm -rf /*"
+        action: deny
+      - pattern: "dd if=* of=/dev/*"
+        action: deny
+      - pattern: "mkfs*"
+        action: deny
+      - pattern: "fdisk*"
+        action: deny
+    action: deny
+
+  - id: windows-write-ask
+    intent: Confirm writes to Windows mount points to prevent accidental cross-OS damage
+    applies_to: [all]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "rm * /mnt/c/*"
+        action: ask
+      - pattern: "rm * /mnt/d/*"
+        action: ask
+      - pattern: "rm * /mnt/e/*"
+        action: ask
+      - pattern: "mv * /mnt/c/*"
+        action: ask
+      - pattern: "mv * /mnt/d/*"
+        action: ask
+      - pattern: "mv * /mnt/e/*"
+        action: ask
+    action: ask
+
+  - id: webfetch-ask
+    intent: Confirm web fetches to prevent data exfiltration or untrusted content
+    applies_to: [all]
+    enforcement: runtime
+    tool: webfetch
+    action: ask
+
+  - id: external-dir-ask
+    intent: Confirm access to paths outside the workspace
+    applies_to: [all]
+    enforcement: runtime
+    tool: external_directory
+    action: ask
+
+workflows:
+  - id: plan-then-build
+    intent: Plan before build for complex tasks to avoid rework
+    applies_when: any task involving code/config/artifact writes (single-file trivial edits like typo/config-value can skip)
+    priority: high
+    steps:
+      - Analyze request and show plan (which files, what changes, why, expected result)
+      - Wait for approval keyword (build/go/批准/实施/开始改)
+      - Execute edits in build mode
+      - Return to plan mode after completion
+
+  - id: pdf-read
+    intent: Read PDFs in paged chunks to avoid context overflow
+    applies_when: reading large PDFs
+    priority: normal
+    steps:
+      - Use look_at for summary first
+      - Use read with offset/limit for detail
+      - Use multimodal-looker for tables and diagrams
+
+  - id: download-cleanup
+    intent: Clean up download/install artifacts to keep environment tidy
+    applies_when: after pip/apt/npm install or curl/wget download
+    priority: normal
+    steps:
+      - Record all created files/packages to cleanup list
+      - Delete temp downloads after task completes (success or fail)
+      - Uninstall temporarily installed packages
+      - Confirm cleanup complete
+
+risk_levels:
+  low:
+    - pip/npm install known public libraries (requests, lodash)
+    - Read/write files in current project directory
+    - Run project tests, lint, build
+    - git status/diff/log (read-only)
+    - Create temp files in workspace
+  medium:
+    - webfetch any URL
+    - Access paths outside workspace
+    - Install system-level packages (apt/brew)
+  high:
+    - mount/umount disk operations
+    - sudo/su privilege escalation
+    - Read/write system directories (/etc, /var, /usr)
+    - Modify global config files
+
+personas: []
+modules: []
