@@ -14,9 +14,15 @@
 // =============================================================================
 
 import { existsSync } from 'fs';
+import { resolve } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { readFileSync } from 'fs';
+import { parse } from 'yaml';
 import opencodeAdapter from '../adapters/opencode.mjs';
 import omoAdapter from '../adapters/omo.mjs';
 import claudeAdapter from '../adapters/claude.mjs';
+import { loadPolicies } from '../core/loader.mjs';
+import { createValidator } from '../core/validator.mjs';
 
 const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, claudeAdapter];
 
@@ -97,4 +103,52 @@ export async function generate(policies, opts = {}) {
     },
     dryRun,
   };
+}
+
+// =============================================================================
+// CLI 入口：node src/orchestrator/generate.mjs [--policies <path>] [--dry-run]
+// =============================================================================
+// 默认行为：读 ./policies.yaml（或 --policies 指定路径）→ 校验 → 检测平台 →
+// 真写（不 dryRun，用户跑 generate 就是想生效）。--dry-run 只预览不写盘。
+// 输出 JSON 报告到 stdout；错误到 stderr；退出码 0=成功 / 1=参数或校验错。
+// =============================================================================
+
+const isMain = import.meta.url === pathToFileURL(process.argv[1] || '').href;
+if (isMain) {
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const policiesIdx = args.findIndex((a) => a.startsWith('--policies'));
+  const policiesPath = policiesIdx >= 0
+    ? resolve(args[policiesIdx + 1] || '')
+    : resolve(process.cwd(), 'policies.yaml');
+
+  if (!existsSync(policiesPath)) {
+    console.error(JSON.stringify({ ok: false, error: `policies.yaml not found: ${policiesPath}` }));
+    process.exit(1);
+  }
+
+  try {
+    const policies = loadPolicies(policiesPath);
+    const validate = createValidator();
+    const v = validate(policies);
+    if (!v.ok) {
+      console.error(JSON.stringify({ ok: false, stage: 'validate', errors: v.errors }, null, 2));
+      process.exit(1);
+    }
+
+    const r = await generate(v.doc, { dryRun });
+    console.log(JSON.stringify({
+      ok: r.ok,
+      dryRun: r.dryRun,
+      written: r.report.written,
+      backups: r.report.backups,
+      skipped: r.report.skipped,
+      errors: r.report.errors,
+      fileMaps: r.dryRun ? r.fileMaps : undefined,  // dry-run 时输出 fileMap 供预览，真写时省略减体积
+    }, null, 2));
+    process.exit(r.ok ? 0 : 1);
+  } catch (e) {
+    console.error(JSON.stringify({ ok: false, error: e.message }));
+    process.exit(1);
+  }
 }
