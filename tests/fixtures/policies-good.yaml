@@ -31,6 +31,7 @@ workflows:
     steps:
       - Use look_at for summary first
       - Use read with offset/limit for detail
+      - Use multimodal-looker for tables and diagrams
 risk_levels:
   low:
     - pip install known public libraries
