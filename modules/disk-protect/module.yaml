@@ -1,0 +1,46 @@
+# modules/disk-protect/module.yaml — 磁盘破坏 + Windows 盘写入保护
+id: disk-protect
+permissions:
+  - id: disk-destruct-deny
+    intent: Block destructive disk operations that can wipe the environment
+    applies_to: [all]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "rm -rf /*"
+        action: deny
+      - pattern: "dd if=* of=/dev/*"
+        action: deny
+      - pattern: "mkfs*"
+        action: deny
+      - pattern: "fdisk*"
+        action: deny
+    action: deny
+
+  - id: windows-write-ask
+    intent: Confirm writes to Windows mount points to prevent accidental cross-OS damage
+    applies_to: [all]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "rm * /mnt/c/*"
+        action: ask
+      - pattern: "rm * /mnt/d/*"
+        action: ask
+      - pattern: "rm * /mnt/e/*"
+        action: ask
+      - pattern: "mv * /mnt/c/*"
+        action: ask
+      - pattern: "mv * /mnt/d/*"
+        action: ask
+      - pattern: "mv * /mnt/e/*"
+        action: ask
+    action: ask
+workflows: []
+risk_levels:
+  low: []
+  medium: []
+  high:
+    - mount/umount disk operations
+    - Read/write system directories (/etc, /var, /usr)
+    - Modify global config files

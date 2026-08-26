@@ -1,109 +1,18 @@
-# relic policies.yaml v2 — 初始最小可用样本
-# 这是 relic 自带的示例规则册。你可以基于它扩展。
-# 格式说明见 schema.json；用 `npm run generate` 生成各平台配置。
+# relic policies.yaml v2 — manifest（模块化模式，方向 3）
+# 这是 manifest：meta + 入口 workflow（always-on）+ profiles + modules registry。
+# 规则正文已拆进 modules/<id>/module.yaml（5 个模块）。
+# 用 `npm run generate` 生成各平台配置（自动用 default profile）；
+# 用 `npm run generate -- --profile work` 指定 profile 只加载子集（省 token）。
 
 meta:
   version: 2
-  description: relic 初始最小可用 policies（示例，可自行扩展）
+  description: relic manifest（模块化模式，规则正文在 modules/）
   evaluation: 按风险分级判断，避免消极回避
 
-permissions:
-  - id: sudo-ask
-    intent: Require confirmation before privilege escalation
-    applies_to: [primary, deep]
-    enforcement: runtime
-    tool: bash
-    patterns:
-      - pattern: "sudo *"
-        action: ask
-      - pattern: "su *"
-        action: ask
-      - pattern: "doas *"
-        action: ask
-    action: ask
-    alternatives:
-      - Run without sudo when no privilege needed
+permissions: []       # 规则正文全进模块；此字段留空满足 schema required
 
-  - id: disk-destruct-deny
-    intent: Block destructive disk operations that can wipe the environment
-    applies_to: [all]
-    enforcement: runtime
-    tool: bash
-    patterns:
-      - pattern: "rm -rf /*"
-        action: deny
-      - pattern: "dd if=* of=/dev/*"
-        action: deny
-      - pattern: "mkfs*"
-        action: deny
-      - pattern: "fdisk*"
-        action: deny
-    action: deny
-
-  - id: windows-write-ask
-    intent: Confirm writes to Windows mount points to prevent accidental cross-OS damage
-    applies_to: [all]
-    enforcement: runtime
-    tool: bash
-    patterns:
-      - pattern: "rm * /mnt/c/*"
-        action: ask
-      - pattern: "rm * /mnt/d/*"
-        action: ask
-      - pattern: "rm * /mnt/e/*"
-        action: ask
-      - pattern: "mv * /mnt/c/*"
-        action: ask
-      - pattern: "mv * /mnt/d/*"
-        action: ask
-      - pattern: "mv * /mnt/e/*"
-        action: ask
-    action: ask
-
-  - id: webfetch-ask
-    intent: Confirm web fetches to prevent data exfiltration or untrusted content
-    applies_to: [all]
-    enforcement: runtime
-    tool: webfetch
-    action: ask
-
-  - id: external-dir-ask
-    intent: Confirm access to paths outside the workspace
-    applies_to: [all]
-    enforcement: runtime
-    tool: external_directory
-    action: ask
-
+# 入口 workflow 留 inline（always-on，每个 profile 都要渲染这两条）
 workflows:
-  - id: plan-then-build
-    intent: Plan before build for complex tasks to avoid rework
-    applies_when: any task involving code/config/artifact writes (single-file trivial edits like typo/config-value can skip)
-    priority: high
-    steps:
-      - Analyze request and show plan (which files, what changes, why, expected result)
-      - Wait for approval keyword (build/go/批准/实施/开始改)
-      - Execute edits in build mode
-      - Return to plan mode after completion
-
-  - id: pdf-read
-    intent: Read PDFs in paged chunks to avoid context overflow
-    applies_when: reading large PDFs
-    priority: normal
-    steps:
-      - Use look_at for summary first
-      - Use read with offset/limit for detail
-      - Use multimodal-looker for tables and diagrams
-
-  - id: download-cleanup
-    intent: Clean up download/install artifacts to keep environment tidy
-    applies_when: after pip/apt/npm install or curl/wget download
-    priority: normal
-    steps:
-      - Record all created files/packages to cleanup list
-      - Delete temp downloads after task completes (success or fail)
-      - Uninstall temporarily installed packages
-      - Confirm cleanup complete
-
   - id: add-permission
     intent: Add a new permission rule via conversational interview
     applies_when: "user wants to add or change a permission rule (trigger words: 加规则 / add permission / /permission / 加一条权限)"
@@ -128,21 +37,34 @@ workflows:
       - "On user confirm, re-run with --apply (auto-runs generate)"
 
 risk_levels:
-  low:
-    - pip/npm install known public libraries (requests, lodash)
-    - Read/write files in current project directory
-    - Run project tests, lint, build
-    - git status/diff/log (read-only)
-    - Create temp files in workspace
-  medium:
-    - webfetch any URL
-    - Access paths outside workspace
-    - Install system-level packages (apt/brew)
-  high:
-    - mount/umount disk operations
-    - sudo/su privilege escalation
-    - Read/write system directories (/etc, /var, /usr)
-    - Modify global config files
+  low: []
+  medium: []
+  high: []
 
 personas: []
-modules: []
+
+# 模块 registry：声明有哪些模块（id 必须等于 modules/<id>/ 目录名 + fragment 的 id）
+modules:
+  - id: sudo-safety
+    name: Sudo Safety
+  - id: disk-protect
+    name: Disk Protect
+  - id: web-safety
+    name: Web Safety
+  - id: build-hygiene
+    name: Build Hygiene
+  - id: pdf-handling
+    name: PDF Handling
+
+# profiles：按场景选模块子集（modules: all = 全部；default:true = 不传 --profile 时用这个）
+profiles:
+  - id: full
+    name: Full profile
+    modules: all
+    default: true
+  - id: work
+    name: Work profile
+    modules: [sudo-safety, disk-protect, web-safety, build-hygiene]
+  - id: personal
+    name: Personal profile
+    modules: [pdf-handling, build-hygiene]

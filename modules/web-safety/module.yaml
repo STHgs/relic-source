@@ -1,0 +1,24 @@
+# modules/web-safety/module.yaml — 网络/外部路径访问安全
+id: web-safety
+permissions:
+  - id: webfetch-ask
+    intent: Confirm web fetches to prevent data exfiltration or untrusted content
+    applies_to: [all]
+    enforcement: runtime
+    tool: webfetch
+    action: ask
+
+  - id: external-dir-ask
+    intent: Confirm access to paths outside the workspace
+    applies_to: [all]
+    enforcement: runtime
+    tool: external_directory
+    action: ask
+workflows: []
+risk_levels:
+  low: []
+  medium:
+    - webfetch any URL
+    - Access paths outside workspace
+    - Install system-level packages (apt/brew)
+  high: []

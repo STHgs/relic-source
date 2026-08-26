@@ -8,18 +8,20 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { parse } from 'yaml';
-import { createValidator } from '../src/core/validator.mjs';
+import { loadProfile } from '../src/core/module-loader.mjs';
 import { renderAgentsMd } from '../src/render/agents-md.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
 
-const policiesYaml = readFileSync(resolve(REPO, 'policies.yaml'), 'utf8');
-const policies = createValidator()(parse(policiesYaml)).doc;
+// 拆分后 policies.yaml 是 manifest；入口 workflow 留 inline，走 loadProfile(full) 合并
+const r = loadProfile({
+  manifestPath: resolve(REPO, 'policies.yaml'),
+  modulesDir: resolve(REPO, 'modules'),
+});
+const policies = r.policies;
 const md = renderAgentsMd(policies);
 
 describe('A3: add-permission workflow rendered', () => {

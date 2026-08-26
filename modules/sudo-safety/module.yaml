@@ -1,0 +1,24 @@
+# modules/sudo-safety/module.yaml — sudo/提权安全规则
+id: sudo-safety
+permissions:
+  - id: sudo-ask
+    intent: Require confirmation before privilege escalation
+    applies_to: [primary, deep]
+    enforcement: runtime
+    tool: bash
+    patterns:
+      - pattern: "sudo *"
+        action: ask
+      - pattern: "su *"
+        action: ask
+      - pattern: "doas *"
+        action: ask
+    action: ask
+    alternatives:
+      - Run without sudo when no privilege needed
+workflows: []
+risk_levels:
+  low: []
+  medium: []
+  high:
+    - sudo/su privilege escalation

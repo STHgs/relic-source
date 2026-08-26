@@ -13,7 +13,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync, copyFileSync, readFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { spawnSync } from 'child_process';
@@ -23,6 +23,7 @@ const REPO = resolve(import.meta.dirname, '..');
 const GEN_CLI = join(REPO, 'src', 'orchestrator', 'generate.mjs');
 const INJECT_CLI = join(REPO, 'src', 'core', 'inject.mjs');
 const POLICIES = join(REPO, 'policies.yaml');
+const MODULES_DIR = join(REPO, 'modules');
 
 let scratch;
 beforeEach(() => {
@@ -125,9 +126,15 @@ describe('I2: inject missing --type → exit 1', () => {
 });
 
 describe('I3: inject --apply writes + runs generate (isolated policies)', () => {
-  // 用隔离的 policies.yaml 副本，避免污染项目主 policies.yaml
+  // 隔离 manifest + modules 副本（manifest 模式需要 modules/ 目录）
   const isoPolicies = join(scratch, 'policies.yaml');
+  const isoModules = join(scratch, 'modules');
   copyFileSync(POLICIES, isoPolicies);
+  // 复制全部 5 个模块（default profile = full 需要 all modules）
+  for (const id of ['sudo-safety', 'disk-protect', 'web-safety', 'build-hygiene', 'pdf-handling']) {
+    mkdirSync(join(isoModules, id), { recursive: true });
+    copyFileSync(join(MODULES_DIR, id, 'module.yaml'), join(isoModules, id, 'module.yaml'));
+  }
 
   const rule = {
     id: 'iso-test-rule',
@@ -155,18 +162,14 @@ describe('I3: inject --apply writes + runs generate (isolated policies)', () => 
 });
 
 describe('I4: inject id clash → exit 2', () => {
-  // 用项目 policies.yaml（read-only，dry-run）测 id 冲突
-  // 项目 policies.yaml 已有 sudo-ask 规则，复用其 id 触发冲突
+  // 拆分后 policies.yaml 是 manifest；inline 留 add-permission/add-workflow 两条入口 workflow。
+  // 用 add-permission 的 id 注入 type=workflow → 触发 id clash（exit 2）。
   const dup = {
-    id: 'sudo-ask',  // 已存在
+    id: 'add-permission',  // 已存在于 manifest inline workflows
     intent: 'Duplicate to trigger id clash',
-    applies_to: ['primary'],
-    enforcement: 'runtime',
-    tool: 'bash',
-    patterns: [{ pattern: 'sudo *' }],
-    action: 'ask',
+    steps: ['step one', 'step two'],
   };
-  const r = runCli(INJECT_CLI, ['--type=permission', '--dry-run', JSON.stringify(dup)]);
+  const r = runCli(INJECT_CLI, ['--type=workflow', '--dry-run', JSON.stringify(dup)]);
   const out = parseJson(r.stdout);
   it('exits 2', () => assert.equal(r.code, 2));
   it('blocked:id_conflict', () => assert.equal(out.blocked, 'id_conflict'));

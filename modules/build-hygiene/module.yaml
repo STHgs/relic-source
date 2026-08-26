@@ -1,0 +1,32 @@
+# modules/build-hygiene/module.yaml — 构建/安装卫生流程 + 低风险分级
+id: build-hygiene
+permissions: []
+workflows:
+  - id: plan-then-build
+    intent: Plan before build for complex tasks to avoid rework
+    applies_when: any task involving code/config/artifact writes (single-file trivial edits like typo/config-value can skip)
+    priority: high
+    steps:
+      - "Analyze request and show plan (which files, what changes, why, expected result)"
+      - "Wait for approval keyword (build/go/批准/实施/开始改)"
+      - "Execute edits in build mode"
+      - "Return to plan mode after completion"
+
+  - id: download-cleanup
+    intent: Clean up download/install artifacts to keep environment tidy
+    applies_when: after pip/apt/npm install or curl/wget download
+    priority: normal
+    steps:
+      - "Record all created files/packages to cleanup list"
+      - "Delete temp downloads after task completes (success or fail)"
+      - "Uninstall temporarily installed packages"
+      - "Confirm cleanup complete"
+risk_levels:
+  low:
+    - pip/npm install known public libraries (requests, lodash)
+    - Read/write files in current project directory
+    - Run project tests, lint, build
+    - git status/diff/log (read-only)
+    - Create temp files in workspace
+  medium: []
+  high: []
