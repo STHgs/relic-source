@@ -23,6 +23,7 @@ import omoAdapter from '../adapters/omo.mjs';
 import claudeAdapter from '../adapters/claude.mjs';
 import { loadPolicies } from '../core/loader.mjs';
 import { createValidator } from '../core/validator.mjs';
+import { loadProfile } from '../core/module-loader.mjs';
 
 const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, claudeAdapter];
 
@@ -106,10 +107,13 @@ export async function generate(policies, opts = {}) {
 }
 
 // =============================================================================
-// CLI 入口：node src/orchestrator/generate.mjs [--policies <path>] [--dry-run]
+// CLI 入口：node src/orchestrator/generate.mjs [--policies <path>] [--profile <id>] [--dry-run]
 // =============================================================================
 // 默认行为：读 ./policies.yaml（或 --policies 指定路径）→ 校验 → 检测平台 →
 // 真写（不 dryRun，用户跑 generate 就是想生效）。--dry-run 只预览不写盘。
+// --profile <id>：如果 manifest 有 profiles 段，用 loadProfile 加载 profile 对应的模块子集。
+//   无 --profile 但 manifest 有 default:true profile → 自动用 default profile。
+//   无 profiles 段 → 走单文件 loadPolicies（现有行为，现有测试不破坏）。
 // 输出 JSON 报告到 stdout；错误到 stderr；退出码 0=成功 / 1=参数或校验错。
 // =============================================================================
 
@@ -121,6 +125,8 @@ if (isMain) {
   const policiesPath = policiesIdx >= 0
     ? resolve(args[policiesIdx + 1] || '')
     : resolve(process.cwd(), 'policies.yaml');
+  const profileIdx = args.findIndex((a) => a.startsWith('--profile'));
+  const profileName = profileIdx >= 0 ? (args[profileIdx + 1] || '') : undefined;
 
   if (!existsSync(policiesPath)) {
     console.error(JSON.stringify({ ok: false, error: `policies.yaml not found: ${policiesPath}` }));
@@ -128,15 +134,31 @@ if (isMain) {
   }
 
   try {
-    const policies = loadPolicies(policiesPath);
-    const validate = createValidator();
-    const v = validate(policies);
-    if (!v.ok) {
-      console.error(JSON.stringify({ ok: false, stage: 'validate', errors: v.errors }, null, 2));
-      process.exit(1);
+    // 分支：如果 manifest 有 profiles 段 或 用户传了 --profile，走 loadProfile
+    const manifestRaw = parse(readFileSync(policiesPath, 'utf8'));
+    const hasProfiles = Array.isArray(manifestRaw.profiles) && manifestRaw.profiles.length > 0;
+
+    let policies;
+    if (hasProfiles || profileName) {
+      const r = loadProfile({ manifestPath: policiesPath, profileName });
+      if (!r.ok) {
+        console.error(JSON.stringify({ ok: false, stage: 'load', errors: r.errors }, null, 2));
+        process.exit(1);
+      }
+      policies = r.policies;
+    } else {
+      // 单文件模式（现有行为）
+      policies = loadPolicies(policiesPath);
+      const validate = createValidator();
+      const v = validate(policies);
+      if (!v.ok) {
+        console.error(JSON.stringify({ ok: false, stage: 'validate', errors: v.errors }, null, 2));
+        process.exit(1);
+      }
+      policies = v.doc;
     }
 
-    const r = await generate(v.doc, { dryRun });
+    const r = await generate(policies, { dryRun });
     console.log(JSON.stringify({
       ok: r.ok,
       dryRun: r.dryRun,
@@ -144,7 +166,7 @@ if (isMain) {
       backups: r.report.backups,
       skipped: r.report.skipped,
       errors: r.report.errors,
-      fileMaps: r.dryRun ? r.fileMaps : undefined,  // dry-run 时输出 fileMap 供预览，真写时省略减体积
+      fileMaps: r.dryRun ? r.fileMaps : undefined,
     }, null, 2));
     process.exit(r.ok ? 0 : 1);
   } catch (e) {

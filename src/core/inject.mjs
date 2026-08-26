@@ -17,15 +17,16 @@
 //   - 不再 gate on tool==='bash'（前身第 99 行只在 bash 时输出 patterns，非 bash 的 patterned 规则丢 patterns）
 // =============================================================================
 
-import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, writeFileSync, copyFileSync, existsSync, mkdirSync } from 'fs';
+import { resolve, join, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { spawnSync } from 'child_process';
 import { parse, stringify } from 'yaml';
 import { detectPermissionConflict, detectWorkflowConflict } from './conflict.mjs';
-import { createValidator } from './validator.mjs';
+import { createValidator, createModuleValidator } from './validator.mjs';
 
 const validate = createValidator();
+const moduleValidate = createModuleValidator();
 
 /**
  * 构造要追加到 permissions 段的 YAML 片段。
@@ -223,16 +224,13 @@ export async function injectRule(opts) {
 
 // =============================================================================
 // CLI 入口：
-//   node src/core/inject.mjs --type=permission|workflow [--dry-run|--apply] [--policies <path>] '<JSON>'
+//   node src/core/inject.mjs --type=permission|workflow [--module <id>] [--dry-run|--apply] [--policies <path>] '<JSON>'
 // =============================================================================
 // 默认 dry-run（安全第一，前身语义）。--apply 才真写入；apply 成功后自动跑
-// generate.mjs 让规则生效到各平台配置（前身 inject-rule.mjs 的 install 步骤等价）。
-// 退出码（前身语义保留）：
-//   0 = 成功（dry-run 预览成功，或 apply 写入+generate 成功）
-//   1 = 参数错误 / JSON 解析失败 / policies 读失败
-//   2 = id 冲突（硬拒绝）
-//   3 = 校验失败（已自动回滚）
-//   4 = generate 失败（policies.yaml 已回滚）
+// generate.mjs 让规则生效到各平台配置。
+// --module <id>：注入到 modules/<id>/module.yaml（fragment 模式），而非主 policies.yaml。
+//   用 moduleFragment schema 校验；冲突检测对该 fragment 自身规则做。
+// 退出码（前身语义保留）：0 成功 / 1 参数错 / 2 id 冲突 / 3 校验失败回滚 / 4 generate 失败回滚
 // =============================================================================
 
 const isMain = import.meta.url === pathToFileURL(process.argv[1] || '').href;
@@ -240,13 +238,18 @@ if (isMain) {
   const args = process.argv.slice(2);
   const typeIdx = args.findIndex((a) => a.startsWith('--type='));
   const type = typeIdx >= 0 ? args[typeIdx].split('=')[1] : null;
-  const dryRun = args.includes('--dry-run') || (!args.includes('--apply'));  // 默认 dry-run
+  const dryRun = args.includes('--dry-run') || (!args.includes('--apply'));
   const apply = args.includes('--apply');
   const policiesIdx = args.findIndex((a) => a.startsWith('--policies'));
   const policiesPath = policiesIdx >= 0
     ? resolve(args[policiesIdx + 1] || '')
     : resolve(process.cwd(), 'policies.yaml');
-  const jsonArg = args.find((a) => !a.startsWith('-'));
+  const moduleIdx = args.findIndex((a) => a.startsWith('--module'));
+  const moduleId = moduleIdx >= 0 ? (args[moduleIdx + 1] || '') : null;
+  const jsonArg = args.find((a) => {
+    if (a.startsWith('-')) return false;
+    try { JSON.parse(a); return true; } catch { return false; }
+  });
 
   // 参数校验
   if (!type || !['permission', 'workflow'].includes(type)) {
@@ -257,9 +260,23 @@ if (isMain) {
     console.error(JSON.stringify({ ok: false, error: 'missing JSON rule argument' }));
     process.exit(1);
   }
-  if (!existsSync(policiesPath)) {
-    console.error(JSON.stringify({ ok: false, error: `policies.yaml not found: ${policiesPath}` }));
-    process.exit(1);
+
+  // 确定目标文件路径
+  let targetPath;
+  if (moduleId) {
+    // fragment 模式：目标 modules/<id>/module.yaml
+    targetPath = join(dirname(policiesPath), 'modules', moduleId, 'module.yaml');
+    if (!existsSync(targetPath)) {
+      console.error(JSON.stringify({ ok: false, error: `module fragment not found: ${targetPath}` }));
+      process.exit(1);
+    }
+  } else {
+    // 单文件模式（现有行为）
+    targetPath = policiesPath;
+    if (!existsSync(targetPath)) {
+      console.error(JSON.stringify({ ok: false, error: `policies.yaml not found: ${targetPath}` }));
+      process.exit(1);
+    }
   }
 
   let rule;
@@ -271,9 +288,16 @@ if (isMain) {
   }
 
   // 跑 inject
+  // 校验器选择：fragment 模式用 moduleFragment validator，单文件用 full v2
+  const validateFn = moduleId
+    ? (doc) => {
+        const mv = moduleValidate(doc);
+        return mv.ok ? { ok: true } : { ok: false, errors: mv.errors };
+      }
+    : undefined;  // undefined → injectRule 用默认的 full v2 validator
   let result;
   try {
-    result = await injectRule({ policiesPath, type, rule, dryRun: !apply });
+    result = await injectRule({ policiesPath: targetPath, type, rule, dryRun: !apply, onValidate: validateFn });
   } catch (e) {
     console.error(JSON.stringify({ ok: false, error: e.message }));
     process.exit(1);
@@ -281,30 +305,29 @@ if (isMain) {
 
   // 退出码映射
   if (result.ok) {
-    // dry-run 成功 → exit 0；apply 成功 → 跑 generate → 看结果
     if (!apply) {
       console.log(JSON.stringify(result, null, 2));
       process.exit(0);
     }
     // apply 模式：跑 generate.mjs 让规则生效到各平台
     const genPath = resolve(import.meta.dirname, '../orchestrator/generate.mjs');
-    const genResult = spawnSync(process.execPath, [genPath, '--policies', policiesPath], {
+    const genArgs = ['--policies', policiesPath];
+    // 如果在 fragment 模式且 manifest 有 profiles，generate 会自动用 default profile
+    const genResult = spawnSync(process.execPath, [genPath, ...genArgs], {
       encoding: 'utf-8',
     });
     if (genResult.status !== 0) {
-      // generate 失败 → 回滚 policies.yaml
-      copyFileSync(result.backupPath, policiesPath);
+      copyFileSync(result.backupPath, targetPath);
       console.log(JSON.stringify({
         ...result,
         ok: false,
         blocked: 'install_failed',
         errors: [genResult.stderr || genResult.stdout],
         rolledBack: true,
-        message: `新规则 "${rule.id}" 写入成功但 generate 失败，policies.yaml 已回滚。`,
+        message: `新规则 "${rule.id}" 写入成功但 generate 失败，${moduleId ? 'fragment' : 'policies.yaml'} 已回滚。`,
       }, null, 2));
       process.exit(4);
     }
-    // 全成功
     const genOutput = (() => { try { return JSON.parse(genResult.stdout); } catch { return null; } })();
     console.log(JSON.stringify({
       ...result,
@@ -312,7 +335,6 @@ if (isMain) {
     }, null, 2));
     process.exit(0);
   } else {
-    // 失败：按 blocked 映射退出码
     console.log(JSON.stringify(result, null, 2));
     const code = result.blocked === 'id_conflict' ? 2
       : result.blocked === 'validation_failed' ? 3
