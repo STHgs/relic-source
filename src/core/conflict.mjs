@@ -186,3 +186,68 @@ export function detectWorkflowConflict(newWorkflow, existingWorkflows) {
 
   return result;
 }
+
+// ─── 跨模块冲突扫描（方向 3）：all-pairs 复用 layer 原语 ────────────────
+/**
+ * All-pairs conflict sweep across merged permissions + workflows.
+ * Reuses detectPermissionConflict/detectWorkflowConflict layer primitives.
+ * @param {object[]} permissions  merged permissions across modules
+ * @param {object[]} workflows    merged workflows across modules
+ * @returns {{ok:boolean, idClashes:object[], permissionConflicts:object[], workflowConflicts:object[], warnings:string[]}}
+ *   ok=false iff any idClash (duplicate id across modules = hard error).
+ *   permissionConflicts/workflowConflicts = non-blocking duplicates/overlap (warnings).
+ */
+export function detectCrossModuleConflicts(permissions, workflows) {
+  const idClashes = [];
+  const permissionConflicts = [];
+  const workflowConflicts = [];
+  const warnings = [];
+
+  // Permissions: all-pairs
+  for (let i = 0; i < permissions.length; i++) {
+    for (let j = i + 1; j < permissions.length; j++) {
+      const a = permissions[i];
+      const b = permissions[j];
+      // id clash (hard)
+      if (a.id === b.id) {
+        idClashes.push({ id: a.id, first: a, second: b });
+        continue;
+      }
+      // use existing layer-2 logic (pattern overlap / tool dup): treat b as "new" vs [a]
+      const r = detectPermissionConflict(b, [a]);
+      if (r.duplicates.length > 0) {
+        for (const d of r.duplicates) permissionConflicts.push(d);
+      }
+      if (r.conflicts.length > 0) {
+        for (const c of r.conflicts) permissionConflicts.push(c);
+      }
+    }
+  }
+
+  // Workflows: all-pairs (Jaccard)
+  for (let i = 0; i < workflows.length; i++) {
+    for (let j = i + 1; j < workflows.length; j++) {
+      const a = workflows[i];
+      const b = workflows[j];
+      if (a.id === b.id) {
+        idClashes.push({ id: a.id, first: a, second: b });
+        continue;
+      }
+      const r = detectWorkflowConflict(b, [a]);
+      if (r.duplicates.length > 0) {
+        for (const d of r.duplicates) workflowConflicts.push(d);
+      }
+      if (r.warnings.length > 0) {
+        for (const w of r.warnings) warnings.push(w);
+      }
+    }
+  }
+
+  return {
+    ok: idClashes.length === 0,
+    idClashes,
+    permissionConflicts,
+    workflowConflicts,
+    warnings,
+  };
+}

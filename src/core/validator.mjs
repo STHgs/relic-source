@@ -65,6 +65,46 @@ export function createValidator(schemaPath = DEFAULT_SCHEMA_PATH) {
   };
 }
 
+// ─── 方向 3：moduleFragment 独立校验器 ────────────────────────────────
+/**
+ * 构造一个针对 moduleFragment 定义的校验函数（用于加载模块片段时独立校验）。
+ * 复用主 schema.json 的 definitions（permission/workflow/riskLevels）。
+ * @param {string} [schemaPath]  schema.json 路径；默认指向 relic/schema.json
+ * @returns {(doc: object) => ValidationResult}
+ */
+export function createModuleValidator(schemaPath = DEFAULT_SCHEMA_PATH) {
+  const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+  const ajv = new Ajv({
+    allErrors: true,
+    useDefaults: true,
+    strict: false,
+    strictSchema: false,
+  });
+  // 构建自包含 moduleFragment schema（带 definitions 让 $ref 可解析）
+  const fragmentSchema = {
+    ...schema.definitions.moduleFragment,
+    definitions: schema.definitions,
+  };
+  const validate = ajv.compile(fragmentSchema);
+
+  return function validateModule(doc) {
+    const ok = validate(doc);
+    if (ok) {
+      return { ok: true, errors: [], doc };
+    }
+    const errors = (validate.errors || []).map((e) => {
+      const path = e.instancePath || '';
+      const field = path || '(root)';
+      const msg = e.message || 'invalid';
+      const extra = e.params && Object.keys(e.params).length
+        ? ' ' + JSON.stringify(e.params)
+        : '';
+      return `${field}: ${msg}${extra}`;
+    });
+    return { ok: false, errors, doc };
+  };
+}
+
 // 默认导出一个用默认 schema 路径构造的实例，方便直接 import 调用。
 const defaultValidate = createValidator();
 export default defaultValidate;

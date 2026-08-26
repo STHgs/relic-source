@@ -50,6 +50,9 @@ export function renderAgentsMd(policies) {
   lines.push('');
   lines.push('> 本文件自动生成，请勿手动修改。');
   lines.push('> 修改规则请编辑源 policies.yaml，然后跑生成器。');
+  if (policies.meta?.profile) {
+    lines.push(`> Profile: ${policies.meta.profile.name} (${policies.meta.profile.id})`);
+  }
   lines.push('');
   lines.push('---');
   lines.push('');
