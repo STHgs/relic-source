@@ -15,8 +15,9 @@
 - [x] 差距分析完成（4 支柱缺口 + 3 个前身 bug）
 - [x] 地基方案产出 + 落盘到 output/v1/foundation-plan.md
 - [x] 地基实施完成：W1→W5 全部 11 任务，21 提交，81 tests 0 fail，3 bug 全修复
-- [x] 方案 A：用户自定义流程入口补全——CLI 入口（generate + inject）+ 对话式入口（add-permission/add-workflow workflow 渲染），4 提交，107 tests 0 fail
-- [ ] 方案 B（token 优化）/ 人设 / Codex-Cursor 适配器 / 模块化 / 迁移策略（待用户启动）
+- [x] 方案 A：用户自定义流程入口补全——CLI 入口 + 对话式入口（workflow 渲染），107 tests
+- [x] 方案 B 方向 3：模块化 + profile 按需加载——schema 增量改 + module-loader + 跨模块冲突 + CLI --profile/--module + round-trip 证明，6 提交，167 tests 0 fail
+- [ ] 人设功能 / Codex-Cursor 适配器 / 迁移策略 / F-MIGRATE 实际拆分（待用户启动）
 
 ## 3. 关键决策
 
@@ -35,6 +36,10 @@
 - 结论（native OpenCode role-flattening）：所有 runtime 权限应用到所有 native agent（general/build/explore）。理由：原生 OpenCode 无 applies_to 角色轴，过包含安全（runtime 仍按 pattern ask/deny）。忠实端口自前身。
 - 结论（A2 CLI，2026-08-26）：generate 默认真写（用户跑 generate 即想生效），inject 默认 dry-run（安全第一，前身语义）。理由：generate 是幂等重写、inject 是追加有副作用，风险等级不同。
 - 结论（A3 入口建模，2026-08-26）：对话式加规则入口建模为 policies.yaml 的 workflow（add-permission/add-workflow），渲染进 AGENTS.md，不做独立 skill 文件。理由：skill 是 OpenCode 专有概念，Claude/Codex/Cursor 没有；workflow 渲染到所有平台读的 AGENTS.md，单一源维护、跨平台、零新增格式。触发词写进 applies_when 弥补无硬触发。
+- 结论（方向 3 F1-F6，2026-08-26）：模块=目录（modules/<id>/module.yaml）；profile=schema 顶层 profiles 段；default:true 默认档；手工拆分迁移；整组模块切换；加载时全量冲突检测。理由：单一源维护 + 跨平台 + 检测早。
+- 结论（F-VERSION）：schema 增量改不 bump version，保持 v2 additive。理由：向后兼容，107 现有测试不破坏。
+- 结论（F-THREAD）：profile 名通过 meta.profile 传递（不加 adapter 签名改动）。理由：适配器零改动。
+- 结论（F-MIGRATE=延迟，用户拍板 2026-08-26）：relic/policies.yaml 保持单文件，模块化系统用 tests/fixtures 证明 + round-trip 测试。实际拆分延后用户触发。理由：硬约束"107 现有测试不动且全绿"，拆分要改 2 个测试。低工作量后续。
 
 ## 4. 已知约束
 
@@ -48,41 +53,42 @@
 
 - AGENTS.md — 本文件，跨 session/平台交接文件
 - interaction/ — 用户输入与反馈材料；初始为空
-- output/ — agent 产物；现有 v1/foundation-plan.md（地基方案文档）
+- output/ — agent 产物；现有 v1/foundation-plan.md（地基方案）+ v2/direction3-plan.md（方向 3 方案）
 - policies.yaml — relic 自身初始规则册（5 权限 + 5 流程含 add-permission/add-workflow 入口 + 风险分级）
 - package.json / package-lock.json — ESM 工具链（ajv@8.20.0 + yaml@2.9.0, node≥20）
-- schema.json — v2 唯一权威契约（enforcement 无 hook，personas/modules 预留槽位）
+- schema.json — v2 唯一权威契约（enforcement 无 hook，personas/modules 槽位已激活为 registry，profiles 增量加）
 - src/ — 源码：
-  - core/ — loader / validator(ajv) / permission-map / conflict(3 层) / inject（+CLI 入口）
-  - render/ — agents-md.mjs（AGENTS.md 渲染器）
+  - core/ — loader / validator(ajv,+createModuleValidator) / permission-map / conflict(3 层,+detectCrossModuleConflicts) / inject（+CLI 入口） / module-loader（loadProfile+mergeFragments，方向 3 核心）
+  - render/ — agents-md.mjs（AGENTS.md 渲染器，+meta.profile 头）
   - adapters/ — base / opencode / omo / claude（3 平台适配器）
-  - orchestrator/ — generate.mjs（detect→generate→install 流水线 + CLI 入口）
-  - index.mjs — 公共 API 门面（pipeline 一条龙）
-- tests/ — 11 个 .test.mjs + fixtures/（3 yaml 样本）；`npm test` 跑 107 tests
+  - orchestrator/ — generate.mjs（流水线 + CLI 入口，+--profile）
+  - index.mjs — 公共 API 门面（pipeline 一条龙，+profile 路由）
+- tests/ — 16 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 167 tests
 - .gitignore / .gitattributes — git 基础配置
 - （前身，只读参考，未迁移）~/.config/opencode/agent-governance/
 
 ## 6. 交接说明
 
 **上轮做了**（含本轮 2026-08-26）：
-- 此前各轮：建成脚手架；差距分析（4 支柱 + 3 bug）；调规划 agent 产出地基方案；落盘方案到 output/v1/；按 W1→W5 执行全部 11 任务，3 bug 全修复，81 tests 0 fail。
-- 本轮（方案 A：用户自定义流程入口补全）：
-  - A1：orchestrator/generate.mjs 加 CLI 入口（`npm run generate [-- --dry-run]`，默认真写，F2）
-  - A2：core/inject.mjs 加 CLI 入口（`node src/core/inject.mjs --type=... [--dry-run|--apply] '<JSON>'`，默认 dry-run，F3；--apply 后自动 spawn generate；退出码 0/1/2/3/4 保留前身语义）
-  - A3：对话式入口建模为 policies.yaml 的 workflow（add-permission/add-workflow），渲染进 AGENTS.md 各平台读；不做 skill 文件（skill 是 OpenCode 专有，workflow 跨平台）；触发词写进 applies_when
-  - 新增 relic/policies.yaml 初始样本（5 权限 + 5 流程含 2 个入口 workflow + 风险分级）
-  - 新增 tests/cli.test.mjs（16 tests G1-G3+I1-I4）+ tests/workflows.test.mjs（10 tests）
-  - 4 提交（4e2300c policies / 36e0c78 generate CLI / 15cc688 inject CLI / 6f97fb9 workflows）；全量 107 tests 0 fail；未碰现网。
+- 此前各轮：建成脚手架；差距分析；地基方案（11 任务）；落盘 output/v1/；W1→W5 全部实施，3 bug 全修复，81 tests；方案 A（CLI + 对话式入口），107 tests。
+- 本轮（方案 B 方向 3：模块化 + profile 按需加载，token 优化）：
+  - 调规划 agent 出方案（29m23s 决策完备），落盘到 output/v2/direction3-plan.md（496 行，15 节）
+  - M0+M1：schema 增量改（+profiles +meta.profile +profile/moduleFragment definitions，无 version bump）+ fixtures（manifest + 3 module + bad-dupe-id）+ S1-S5 测试
+  - M2+M3：module-loader.mjs（loadProfile + mergeFragments）+ validator createModuleValidator + conflict detectCrossModuleConflicts + agents-md +meta.profile 头 + L1-L11 + R4-R5 测试
+  - M4：generate --profile + inject --module + index pipeline + G4-G6/I5-I7 测试
+  - M5：round-trip 测试 RT1-RT2（拆分→合并→渲染 == 原始，证明无损）
+  - 6 提交（545f958/6196903/5ce1b73/61186b1）；全量 167 tests 0 fail；未碰现网。
+  - 用户拍板 F-MIGRATE=延迟（保持 relic/policies.yaml 单文件，模块化用 fixtures 证明）。
 
 **下轮该做**：
-- 方案 A 已完成。下轮候选：① 方案 B（token 优化——看现网 AGENTS.md ~2200 tokens/session 哪些能精简，渲染层低风险）；② 人设功能；③ Codex/Cursor 适配器；④ 模块/pack 系统；⑤ 迁移策略决策。
-- 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则），方案入 output/v2/ 或 v1.1/。
+- 方向 3 已完成。下轮候选：① F-MIGRATE 实际拆分（把 relic/policies.yaml 真拆成 manifest+modules/，改 2 个测试走 profile loader）；② 人设功能（schema 槽位已留，做生成器+各平台 persona 落点）；③ Codex/Cursor 适配器；④ 迁移策略决策（替换/软链/共存）。
+- 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则），方案入 output/v3/ 或 v2.1/。
 
-**待澄清**（F1/F2/F3 已落地，剩余为新阶段决策）：
-- ✅ F1 丢 hook / ✅ F2 bash 必带 patterns / ✅ F3 Claude 路径 ~/.claude/AGENTS.md（均落地）
+**待澄清**（F1-F6/F-MIGRATE 已落地，剩余为新阶段决策）：
+- ✅ F1-F6 方向 3 分叉全部落地（见关键决策段）
+- ✅ F-MIGRATE=延迟（用户拍板；实际拆分延后触发）
 - 迁移策略：relic 成熟后是原地替换 agent-governance、软链过渡，还是长期共存？
 - 第二个目标平台是哪个（Codex/Cursor）？
 - persona 范畴边界（语气风格？行为偏好？记忆？）——schema 槽位已留 {id,name,tone,directives[]}，功能待做。
-- 前身 skills/（workflow、permission）是否随迁入 relic？——A3 已答：不迁 skill 文件，入口逻辑建模为 workflow。
 - output/ 版本产物是否纳入 git 跟踪（当前默认跟踪）？
-- ✅ 地基方案完整 11 任务详情在 relic/output/v1/foundation-plan.md。
+- ✅ 方案详情：地基在 output/v1/foundation-plan.md，方向 3 在 output/v2/direction3-plan.md。
