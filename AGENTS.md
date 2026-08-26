@@ -17,7 +17,8 @@
 - [x] 地基实施完成：W1→W5 全部 11 任务，21 提交，81 tests 0 fail，3 bug 全修复
 - [x] 方案 A：用户自定义流程入口补全——CLI 入口 + 对话式入口（workflow 渲染），107 tests
 - [x] 方案 B 方向 3：模块化 + profile 按需加载——schema 增量改 + module-loader + 跨模块冲突 + CLI --profile/--module + round-trip 证明，6 提交，167 tests 0 fail
-- [ ] 人设功能 / Codex-Cursor 适配器 / 迁移策略 / F-MIGRATE 实际拆分（待用户启动）
+- [x] F-MIGRATE 执行：relic/policies.yaml 拆成 manifest + 5 modules/（sudo-safety/disk-protect/web-safety/build-hygiene/pdf-handling），3 profile（full=默认/work/personal），改 2 测试走 profile loader，round-trip 无损验证，1 提交，167 tests 0 fail
+- [ ] 人设功能 / Codex-Cursor 适配器 / 迁移策略（待用户启动）
 
 ## 3. 关键决策
 
@@ -40,6 +41,7 @@
 - 结论（F-VERSION）：schema 增量改不 bump version，保持 v2 additive。理由：向后兼容，107 现有测试不破坏。
 - 结论（F-THREAD）：profile 名通过 meta.profile 传递（不加 adapter 签名改动）。理由：适配器零改动。
 - 结论（F-MIGRATE=延迟，用户拍板 2026-08-26）：relic/policies.yaml 保持单文件，模块化系统用 tests/fixtures 证明 + round-trip 测试。实际拆分延后用户触发。理由：硬约束"107 现有测试不动且全绿"，拆分要改 2 个测试。低工作量后续。
+- 结论（F-MIGRATE 执行，2026-08-26）：用户拍板执行拆分。relic/policies.yaml 变 manifest（meta+入口workflow inline+profiles+registry，permissions=[]）；规则正文进 modules/<id>/module.yaml（5 模块按内聚分组：sudo-safety/disk-protect/web-safety/build-hygiene/pdf-handling）。入口 workflow 留 inline（always-on，每 profile 都要能加规则）。规则+对应 risk_levels 归同一模块（切模块连风险项一起切）。改 2 测试（workflows.test.mjs 走 loadProfile；cli.test.mjs I3 复制 modules 到 scratch、I4 用 add-permission id clash）。round-trip 无损验证。理由：方向 3 机器已验证，拆真文件低风险；relic 自己的样本变模块化。
 
 ## 4. 已知约束
 
@@ -54,7 +56,8 @@
 - AGENTS.md — 本文件，跨 session/平台交接文件
 - interaction/ — 用户输入与反馈材料；初始为空
 - output/ — agent 产物；现有 v1/foundation-plan.md（地基方案）+ v2/direction3-plan.md（方向 3 方案）
-- policies.yaml — relic 自身初始规则册（5 权限 + 5 流程含 add-permission/add-workflow 入口 + 风险分级）
+- policies.yaml — manifest（模块化模式）：meta + 入口 workflow（add-permission/add-workflow，inline always-on）+ profiles（full=默认/work/personal）+ modules registry（5 模块）。规则正文已进 modules/
+- modules/ — 5 个规则片段：sudo-safety / disk-protect / web-safety / build-hygiene / pdf-handling（每个 module.yaml 含 id + permissions/workflows/risk_levels 片段）
 - package.json / package-lock.json — ESM 工具链（ajv@8.20.0 + yaml@2.9.0, node≥20）
 - schema.json — v2 唯一权威契约（enforcement 无 hook，personas/modules 槽位已激活为 registry，profiles 增量加）
 - src/ — 源码：
@@ -70,25 +73,26 @@
 ## 6. 交接说明
 
 **上轮做了**（含本轮 2026-08-26）：
-- 此前各轮：建成脚手架；差距分析；地基方案（11 任务）；落盘 output/v1/；W1→W5 全部实施，3 bug 全修复，81 tests；方案 A（CLI + 对话式入口），107 tests。
-- 本轮（方案 B 方向 3：模块化 + profile 按需加载，token 优化）：
-  - 调规划 agent 出方案（29m23s 决策完备），落盘到 output/v2/direction3-plan.md（496 行，15 节）
-  - M0+M1：schema 增量改（+profiles +meta.profile +profile/moduleFragment definitions，无 version bump）+ fixtures（manifest + 3 module + bad-dupe-id）+ S1-S5 测试
-  - M2+M3：module-loader.mjs（loadProfile + mergeFragments）+ validator createModuleValidator + conflict detectCrossModuleConflicts + agents-md +meta.profile 头 + L1-L11 + R4-R5 测试
-  - M4：generate --profile + inject --module + index pipeline + G4-G6/I5-I7 测试
-  - M5：round-trip 测试 RT1-RT2（拆分→合并→渲染 == 原始，证明无损）
-  - 6 提交（545f958/6196903/5ce1b73/61186b1）；全量 167 tests 0 fail；未碰现网。
-  - 用户拍板 F-MIGRATE=延迟（保持 relic/policies.yaml 单文件，模块化用 fixtures 证明）。
+- 此前各轮：建成脚手架；差距分析；地基方案（11 任务）；W1→W5 全部实施，3 bug 全修复，81 tests；方案 A（CLI + 对话式入口），107 tests；方案 B 方向 3（模块化 + profile，6 提交，167 tests）。
+- 本轮（F-MIGRATE 执行 + profile 架构展示）：
+  - 用户拍板执行 F-MIGRATE：relic/policies.yaml 拆成 manifest + 5 modules/（sudo-safety/disk-protect/web-safety/build-hygiene/pdf-handling）
+  - manifest 含 meta + 入口 workflow inline（add-permission/add-workflow always-on）+ profiles（full=默认/work/personal）+ modules registry（5 模块）
+  - 模块按内聚分组：规则+对应 risk_levels 归同一模块（切模块连风险项一起切）
+  - 改 2 测试：workflows.test.mjs 走 loadProfile（断言不变）；cli.test.mjs I3 复制 modules 到 scratch、I4 用 add-permission id clash（type=workflow，因 sudo-ask 移到模块）
+  - round-trip 无损验证：loadProfile(full) 渲染 == 原始（5 权限+5 流程+risk 5/3/4 全对上）
+  - token 优化效果实测：full ~1037 tok / work ~982 tok / personal ~799 tok（规则增多后差距拉大）
+  - 1 提交（dc27b3a）；全量 167 tests 0 fail；未碰现网。
+  - 向用户展示了 profile 架构全景（manifest/modules/loadProfile 链路 + 3 profile 对比 + 加载流程）。
 
 **下轮该做**：
-- 方向 3 已完成。下轮候选：① F-MIGRATE 实际拆分（把 relic/policies.yaml 真拆成 manifest+modules/，改 2 个测试走 profile loader）；② 人设功能（schema 槽位已留，做生成器+各平台 persona 落点）；③ Codex/Cursor 适配器；④ 迁移策略决策（替换/软链/共存）。
+- F-MIGRATE 已执行。下轮候选：① 人设功能（schema 槽位已留 {id,name,tone,directives[]}，做生成器+各平台 persona 落点）；② Codex/Cursor 适配器（刀架就绪，做新夹头）；③ 迁移策略决策（替换/软链/共存）；④ 方向 2 补充（workflow steps 折叠，进一步省 token）。
 - 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则），方案入 output/v3/ 或 v2.1/。
 
-**待澄清**（F1-F6/F-MIGRATE 已落地，剩余为新阶段决策）：
-- ✅ F1-F6 方向 3 分叉全部落地（见关键决策段）
-- ✅ F-MIGRATE=延迟（用户拍板；实际拆分延后触发）
+**待澄清**（F1-F6/F-MIGRATE 全部落地，剩余为新阶段决策）：
+- ✅ F1-F6 方向 3 分叉全部落地
+- ✅ F-MIGRATE 已执行（relic/policies.yaml 已拆成 manifest + modules/）
 - 迁移策略：relic 成熟后是原地替换 agent-governance、软链过渡，还是长期共存？
 - 第二个目标平台是哪个（Codex/Cursor）？
-- persona 范畴边界（语气风格？行为偏好？记忆？）——schema 槽位已留 {id,name,tone,directives[]}，功能待做。
+- persona 范畴边界（语气风格？行为偏好？记忆？）——schema 槽位已留，功能待做。
 - output/ 版本产物是否纳入 git 跟踪（当前默认跟踪）？
 - ✅ 方案详情：地基在 output/v1/foundation-plan.md，方向 3 在 output/v2/direction3-plan.md。
