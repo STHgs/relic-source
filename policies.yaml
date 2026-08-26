@@ -104,6 +104,29 @@ workflows:
       - Uninstall temporarily installed packages
       - Confirm cleanup complete
 
+  - id: add-permission
+    intent: Add a new permission rule via conversational interview
+    applies_when: "user wants to add or change a permission rule (trigger words: 加规则 / add permission / /permission / 加一条权限)"
+    priority: high
+    steps:
+      - "Ask user for required fields: id (lowercase-kebab), intent (what it does), applies_to (primary/deep/subagent/all), enforcement (runtime/advisory), tool (bash/edit/webfetch/external_directory), patterns (for bash: the command globs), action (ask/deny/allow)"
+      - "Construct a JSON rule object from the answers"
+      - "Run `node src/core/inject.mjs --type=permission --dry-run '<JSON>'` to preview (shows yamlSnippet + conflictCheck)"
+      - "Show the yamlSnippet and any duplicates/conflicts/warnings to the user"
+      - "On user confirm, re-run with --apply (auto-runs generate so the rule takes effect across detected platforms)"
+      - "If id clash or validation fails, report the error and restart the interview"
+
+  - id: add-workflow
+    intent: Add a new workflow via conversational interview
+    applies_when: "user wants to add or change a workflow (trigger words: 加流程 / add workflow / /workflow / 加一个流程)"
+    priority: high
+    steps:
+      - "Ask user for: id (lowercase-kebab), intent (when to use it), applies_when (trigger condition), priority (critical/high/normal), steps (list of actions)"
+      - "Construct a JSON workflow object from the answers"
+      - "Run `node src/core/inject.mjs --type=workflow --dry-run '<JSON>'` to preview"
+      - "Show the yamlSnippet and conflictCheck to the user"
+      - "On user confirm, re-run with --apply (auto-runs generate)"
+
 risk_levels:
   low:
     - pip/npm install known public libraries (requests, lodash)
