@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://relic.local/schemas/policies.v2.json",
+  "title": "relic policies v2",
+  "type": "object",
+  "required": ["meta", "permissions"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["version", "description"],
+      "properties": {
+        "version": { "type": "integer", "const": 2 },
+        "description": { "type": "string", "minLength": 1 },
+        "evaluation": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "permissions": { "type": "array", "items": { "$ref": "#/definitions/permission" } },
+    "workflows":   { "type": "array", "items": { "$ref": "#/definitions/workflow" }, "default": [] },
+    "risk_levels": { "$ref": "#/definitions/riskLevels", "default": { "low": [], "medium": [], "high": [] } },
+    "personas": {
+      "type": "array",
+      "description": "SLOT (persona feature deferred). Shape reserved for forward-compat; no generator consumes it yet.",
+      "items": { "$ref": "#/definitions/personaSlot" },
+      "default": []
+    },
+    "modules": {
+      "type": "array",
+      "description": "SLOT (module/pack system deferred). Shape reserved; no generator consumes it yet.",
+      "items": { "$ref": "#/definitions/moduleSlot" },
+      "default": []
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "permission": {
+      "type": "object",
+      "required": ["id", "intent", "applies_to", "enforcement", "tool", "action"],
+      "properties": {
+        "id":          { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "intent":      { "type": "string", "minLength": 5 },
+        "applies_to":   { "type": "array", "items": { "enum": ["primary","deep","subagent","all"] }, "minItems": 1 },
+        "enforcement": { "enum": ["runtime", "advisory"] },
+        "tool":         { "enum": ["bash", "edit", "webfetch", "external_directory"] },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string", "minLength": 1 },
+              "action":  { "enum": ["ask", "deny", "allow"] }
+            },
+            "required": ["pattern"],
+            "additionalProperties": false
+          }
+        },
+        "action":        { "enum": ["ask", "deny", "allow"] },
+        "alternatives":  { "type": "array", "items": { "type": "string" }, "default": [] }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if":   { "properties": { "tool": { "const": "bash" } }, "required": ["tool"] },
+          "then": { "required": ["id","intent","applies_to","enforcement","tool","action","patterns"] }
+        }
+      ]
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["id", "intent", "steps"],
+      "properties": {
+        "id":          { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "intent":      { "type": "string", "minLength": 5 },
+        "applies_when":{ "type": "string" },
+        "priority":    { "enum": ["critical", "high", "normal"], "default": "normal" },
+        "steps":       { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "riskLevels": {
+      "type": "object",
+      "properties": {
+        "low":    { "type": "array", "items": { "type": "string" }, "default": [] },
+        "medium": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "high":   { "type": "array", "items": { "type": "string" }, "default": [] }
+      },
+      "additionalProperties": false
+    },
+    "personaSlot": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id":         { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "name":       { "type": "string", "minLength": 1 },
+        "tone":       { "type": "string" },
+        "directives": { "type": "array", "items": { "type": "string" }, "default": [] }
+      },
+      "additionalProperties": false
+    },
+    "moduleSlot": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id":      { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "name":    { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "enabled": { "type": "boolean", "default": true },
+        "config":  { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    }
+  }
+}
