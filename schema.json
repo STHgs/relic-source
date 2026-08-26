@@ -11,7 +11,16 @@
       "properties": {
         "version": { "type": "integer", "const": 2 },
         "description": { "type": "string", "minLength": 1 },
-        "evaluation": { "type": "string" }
+        "evaluation": { "type": "string" },
+        "profile": {
+          "type": "object",
+          "description": "Active profile (set by loadProfile; absent in single-file mode).",
+          "properties": {
+            "id":   { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "name": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },
@@ -26,8 +35,14 @@
     },
     "modules": {
       "type": "array",
-      "description": "SLOT (module/pack system deferred). Shape reserved; no generator consumes it yet.",
+      "description": "Module registry: declared modules (id/name/version/enabled). Profiles reference these ids; rule fragments live at modules/<id>/module.yaml. Consumed by loadProfile (direction 3).",
       "items": { "$ref": "#/definitions/moduleSlot" },
+      "default": []
+    },
+    "profiles": {
+      "type": "array",
+      "description": "Profiles select a subset of registry modules to load per session (direction 3). Default profile used when --profile omitted.",
+      "items": { "$ref": "#/definitions/profile" },
       "default": []
     }
   },
@@ -106,6 +121,33 @@
         "version": { "type": "string" },
         "enabled": { "type": "boolean", "default": true },
         "config":  { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["id", "name", "modules"],
+      "properties": {
+        "id":      { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "name":    { "type": "string", "minLength": 1 },
+        "modules": {
+          "oneOf": [
+            { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
+            { "const": "all" }
+          ]
+        },
+        "default": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
+    "moduleFragment": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id":          { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "permissions": { "type": "array", "items": { "$ref": "#/definitions/permission" }, "default": [] },
+        "workflows":   { "type": "array", "items": { "$ref": "#/definitions/workflow" }, "default": [] },
+        "risk_levels": { "$ref": "#/definitions/riskLevels", "default": { "low": [], "medium": [], "high": [] } }
       },
       "additionalProperties": false
     }
