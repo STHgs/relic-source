@@ -18,6 +18,9 @@
 // =============================================================================
 
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
+import { spawnSync } from 'child_process';
 import { parse, stringify } from 'yaml';
 import { detectPermissionConflict, detectWorkflowConflict } from './conflict.mjs';
 import { createValidator } from './validator.mjs';
@@ -216,4 +219,105 @@ export async function injectRule(opts) {
     newCount,
     message: `新规则 "${rule.id}" 已生效。${targetSection} 总数: ${newCount}。`,
   };
+}
+
+// =============================================================================
+// CLI 入口：
+//   node src/core/inject.mjs --type=permission|workflow [--dry-run|--apply] [--policies <path>] '<JSON>'
+// =============================================================================
+// 默认 dry-run（安全第一，前身语义）。--apply 才真写入；apply 成功后自动跑
+// generate.mjs 让规则生效到各平台配置（前身 inject-rule.mjs 的 install 步骤等价）。
+// 退出码（前身语义保留）：
+//   0 = 成功（dry-run 预览成功，或 apply 写入+generate 成功）
+//   1 = 参数错误 / JSON 解析失败 / policies 读失败
+//   2 = id 冲突（硬拒绝）
+//   3 = 校验失败（已自动回滚）
+//   4 = generate 失败（policies.yaml 已回滚）
+// =============================================================================
+
+const isMain = import.meta.url === pathToFileURL(process.argv[1] || '').href;
+if (isMain) {
+  const args = process.argv.slice(2);
+  const typeIdx = args.findIndex((a) => a.startsWith('--type='));
+  const type = typeIdx >= 0 ? args[typeIdx].split('=')[1] : null;
+  const dryRun = args.includes('--dry-run') || (!args.includes('--apply'));  // 默认 dry-run
+  const apply = args.includes('--apply');
+  const policiesIdx = args.findIndex((a) => a.startsWith('--policies'));
+  const policiesPath = policiesIdx >= 0
+    ? resolve(args[policiesIdx + 1] || '')
+    : resolve(process.cwd(), 'policies.yaml');
+  const jsonArg = args.find((a) => !a.startsWith('-'));
+
+  // 参数校验
+  if (!type || !['permission', 'workflow'].includes(type)) {
+    console.error(JSON.stringify({ ok: false, error: 'missing or invalid --type=permission|workflow' }));
+    process.exit(1);
+  }
+  if (!jsonArg) {
+    console.error(JSON.stringify({ ok: false, error: 'missing JSON rule argument' }));
+    process.exit(1);
+  }
+  if (!existsSync(policiesPath)) {
+    console.error(JSON.stringify({ ok: false, error: `policies.yaml not found: ${policiesPath}` }));
+    process.exit(1);
+  }
+
+  let rule;
+  try {
+    rule = JSON.parse(jsonArg);
+  } catch (e) {
+    console.error(JSON.stringify({ ok: false, error: `JSON parse failed: ${e.message}` }));
+    process.exit(1);
+  }
+
+  // 跑 inject
+  let result;
+  try {
+    result = await injectRule({ policiesPath, type, rule, dryRun: !apply });
+  } catch (e) {
+    console.error(JSON.stringify({ ok: false, error: e.message }));
+    process.exit(1);
+  }
+
+  // 退出码映射
+  if (result.ok) {
+    // dry-run 成功 → exit 0；apply 成功 → 跑 generate → 看结果
+    if (!apply) {
+      console.log(JSON.stringify(result, null, 2));
+      process.exit(0);
+    }
+    // apply 模式：跑 generate.mjs 让规则生效到各平台
+    const genPath = resolve(import.meta.dirname, '../orchestrator/generate.mjs');
+    const genResult = spawnSync(process.execPath, [genPath, '--policies', policiesPath], {
+      encoding: 'utf-8',
+    });
+    if (genResult.status !== 0) {
+      // generate 失败 → 回滚 policies.yaml
+      copyFileSync(result.backupPath, policiesPath);
+      console.log(JSON.stringify({
+        ...result,
+        ok: false,
+        blocked: 'install_failed',
+        errors: [genResult.stderr || genResult.stdout],
+        rolledBack: true,
+        message: `新规则 "${rule.id}" 写入成功但 generate 失败，policies.yaml 已回滚。`,
+      }, null, 2));
+      process.exit(4);
+    }
+    // 全成功
+    const genOutput = (() => { try { return JSON.parse(genResult.stdout); } catch { return null; } })();
+    console.log(JSON.stringify({
+      ...result,
+      generate: genOutput ? { written: genOutput.written, skipped: genOutput.skipped } : { raw: genResult.stdout },
+    }, null, 2));
+    process.exit(0);
+  } else {
+    // 失败：按 blocked 映射退出码
+    console.log(JSON.stringify(result, null, 2));
+    const code = result.blocked === 'id_conflict' ? 2
+      : result.blocked === 'validation_failed' ? 3
+      : result.blocked === 'install_failed' ? 4
+      : 1;
+    process.exit(code);
+  }
 }
