@@ -14,7 +14,8 @@
 - [x] 项目脚手架建成：/mnt/e/AIworkspace/relic（AGENTS.md、interaction/、output/、.gitignore、.gitattributes），git main 分支 2 个原子提交
 - [x] 差距分析完成：读完 agent-governance 全部源码，产出 4 支柱缺口矩阵 + 3 个前身 bug 清单
 - [x] 地基方案产出（规划 agent 8m46s 决策完备）：schema v2 + ajv 检具 + 3 平台快换夹头 + bug 修复 + TDD，11 任务 5 波次
-- [ ] 地基实施：方案已向用户展示，待批准 F1（是否丢弃 hook 枚举）+ go 开干
+- [x] 地基方案落盘：relic/output/v1/foundation-plan.md（2026-08-26，从规划 agent session 找回并整理），下 session 可直接读该文件续建
+- [ ] 地基实施：方案已落盘展示，待用户讨论后拍板 F1（是否丢弃 hook 枚举）+ go 开干（用户本轮要求先讨论、暂缓执行）
 - [ ] 人设功能 / Codex/Cursor 适配器 / 模块化系统（地基之后）
 
 ## 3. 关键决策
@@ -40,21 +41,20 @@
 
 - AGENTS.md — 本文件，跨 session/平台交接文件
 - interaction/ — 用户输入与反馈材料；初始为空
-- output/ — agent 产物，按版本独立存放；初始为空（尚无 v1）
+- output/ — agent 产物，按版本独立存放；现有 v1/foundation-plan.md（地基方案文档）
 - .gitignore / .gitattributes — git 基础配置
 - （前身项目，只读参考，未迁移）~/.config/opencode/agent-governance/ — policies.yaml、schema.json、generate.mjs、lib/、install.sh、rollback-plan-then-build.sh、generated/、backups/、skills/
 
 ## 6. 交接说明
 
-**上轮做了**：
-- 建成 relic 脚手架（目录 + AGENTS.md + git main 2 提交），未写功能代码，未碰现网 agent-governance。
-- 读完 agent-governance 全部源码（policies.yaml/schema.json/generate.mjs/install.sh/lib 两文件/skills 两文件/README），产出差距分析：4 支柱缺口（可插拔/跨平台/长期演进/persona）+ 3 个前身 bug（/permission 加 bash 规则静默失败、hook 死代码、schema 非权威）。
-- 调规划 agent 产出地基实施方案（8m46s 决策完备）：11 任务 5 波次——schema.json v2（含 personas/modules 槽位、删 hook 枚举）、validator(ajv)、loader、permission-map、conflict、inject、agents-md 渲染器、3 平台适配器(opencode/omo/claude)、orchestrator、index.mjs、TDD 测试套件、AGENTS.md 更新。3 bug 在重写中修复。
-- 用工科通用语言向用户解释了整个地基方案架构。
+**上轮做了**（含本轮 2026-08-26）：
+- 此前各轮：建成 relic 脚手架（git main 2 提交）；读完 agent-governance 全部源码产出差距分析（4 支柱缺口 + 3 前身 bug：/permission 加 bash 规则静默失败、hook 死代码、schema 非权威）；调规划 agent 产出地基方案（11 任务 5 波次，8m46s 决策完备）；用工科通用语言向用户解释方案架构。
+- 本轮：从 session 历史找回规划 agent 完整地基方案（主会话 ses_fcdf812... + 规划 agent session ses_fc7aaa627...），确认方案未丢失；将完整方案落盘到 relic/output/v1/foundation-plan.md（12 节 + TODO 清单），消除"方案只在对话里"的未落盘风险；同步本文件「待澄清」标注方案已落盘。未写功能代码，未碰现网 agent-governance。
+- 用户本轮要求：先讨论方案细节，暂缓执行 W1（未给 go、未拍板 F1）。
 
 **下轮该做**：
-- 等用户对 F1 拍板（丢弃 hook 枚举？规划推荐丢弃）+ go 信号。
-- 执行地基 W1→W5：W1 package.json+schema+fixtures → W2 validator/loader/conflict/agents-md/adapter-base → W3 三适配器+inject → W4 orchestrator+index → W5 AGENTS.md 更新+提交。每波次间跑 `node --test` 验证，失败即停。
+- 等用户拖出讨论点（已列方向：快换夹头/schema 槽位/为何先做地基/F1 权衡/迁移策略/persona 边界/3 bug 修复/role 扁平化）或直接拍板 F1 + go。
+- 拍板 F1（规划推荐丢弃 hook 枚举）+ go 后，按 W1→W5 执行：W1 package.json+schema+fixtures → W2 validator/loader/conflict/agents-md/adapter-base → W3 三适配器+inject → W4 orchestrator+index → W5 AGENTS.md 更新+提交。每波次间跑 `node --test`，失败即停。逐任务详情见 output/v1/foundation-plan.md。
 - 地基完成后再谈：人设功能、Codex/Cursor 适配器、模块/pack 系统。
 
 **待澄清**：
@@ -66,4 +66,4 @@
 - persona 范畴边界（语气风格？行为偏好？记忆？）——地基只留 schema 槽位。
 - agent-governance 中的 skills/（workflow、permission）是否随迁入 relic？
 - output/ 版本产物是否纳入 git 跟踪（当前默认跟踪）？
-- ⚠ 地基方案完整 11 任务详情在本 session 对话里，未落盘成文件。下 session 若要直接续建，建议先把它存到 relic/output/v1/foundation-plan.md（待用户指示）。
+- ✅ 地基方案完整 11 任务详情已落盘到 `relic/output/v1/foundation-plan.md`（2026-08-26）。下 session 直接读该文件即可续建，无需重读对话。方案源：规划 agent session `ses_fc7aaa627...`。
