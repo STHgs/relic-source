@@ -49,7 +49,7 @@ export function renderAgentsMd(policies) {
   lines.push('# Agent 行为治理规则');
   lines.push('');
   lines.push('> 本文件自动生成，请勿手动修改。');
-  lines.push('> 修改规则请编辑源 policies.yaml，然后跑生成器。');
+  lines.push('> 修改规则请编辑源 modules/<id>/module.yaml，然后跑 npm run generate。');
   if (policies.meta?.profile) {
     lines.push(`> Profile: ${policies.meta.profile.name} (${policies.meta.profile.id})`);
   }
@@ -140,7 +140,7 @@ export function renderAgentsMd(policies) {
   lines.push('1. **硬约束绕不过**——不要尝试，直接按替代方案走。');
   lines.push('2. **中风险操作不用回避**——系统弹窗是给用户看的，不是给你看的。你正常发起 `webfetch`、访问工作区外路径，让系统去弹窗。');
   lines.push('3. **低风险直接做**——装公开库、改项目文件、跑测试，不用请示。');
-  lines.push('4. **改规则不改这里**——这里只读。要改规则编辑 `policies.yaml` 然后跑生成器。');
+  lines.push('4. **改规则不改这里**——这里只读。要改规则编辑 `modules/<id>/module.yaml` 然后跑 `npm run generate`。');
 
   return lines.join('\n');
 }
