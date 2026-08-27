@@ -7,9 +7,19 @@ workflows:
     applies_when: reading large PDFs
     priority: normal
     steps:
-      - "Use look_at for summary first"
-      - "Use read with offset/limit for detail"
-      - "Use multimodal-looker for tables and diagrams"
+      - "Use look_at for summary first, decide if detailed reading is needed"
+      - "Use read tool for detail, large files use offset/limit pagination"
+      - "Use multimodal-looker for tables and diagrams, not plain text"
+      - "Use specialized parsing libraries for structured data extraction, not manual line-by-line reading"
+
+  - id: pdf-write
+    intent: PDF generation steps
+    applies_when: generating PDF output
+    priority: normal
+    steps:
+      - "Prefer reportlab (Python) or pdfkit (Node)"
+      - "Templates and styles in separate files, not hardcoded"
+      - "Artifacts go in the workspace root /mnt/e/AIworkspace/ by default"
 risk_levels:
   low: []
   medium: []
