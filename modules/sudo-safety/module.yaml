@@ -3,7 +3,7 @@ id: sudo-safety
 permissions:
   - id: sudo-ask
     intent: Require confirmation before privilege escalation
-    applies_to: [primary, deep]
+    applies_to: [primary, deep, subagent]
     enforcement: runtime
     tool: bash
     patterns:
@@ -16,6 +16,7 @@ permissions:
     action: ask
     alternatives:
       - Run without sudo when no privilege needed
+      - When privilege is genuinely needed, explain why and let the user decide in the popup
 workflows: []
 risk_levels:
   low: []
