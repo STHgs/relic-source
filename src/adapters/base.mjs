@@ -13,7 +13,7 @@
 // install 具体逻辑（deep-merge / replace / symlink）由各适配器在 T8 实现。
 // =============================================================================
 
-import { copyFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
 // ─── 类型契约（JSDoc typedef，供适配器实现者与 @ts-check 参考）──────────
@@ -84,7 +84,7 @@ export function writeWithHeader(absPath, content, opts = {}) {
   const {
     header = [
       '// =============================================================================',
-      '// 自动生成 — 勿手改。源: relic policies.yaml（经 schema.json v2 校验）',
+      '// 自动生成 — 勿手改。源: relic manifest+modules（经 schema.json v2 校验）',
       `// 生成时间: ${new Date().toISOString()}`,
       '// =============================================================================',
       '',
@@ -105,4 +105,65 @@ export function writeWithHeader(absPath, content, opts = {}) {
  */
 export function emptyReport() {
   return { ok: true, written: [], backups: [], skipped: [], errors: [] };
+}
+
+// ─── JSONC 解析辅助 ─────────────────────────────────────────────────────
+// 从现网 install.sh:50-78 / :123-139 的 stripJsonc 提取、去重、共享。
+// install 阶段读 JSONC（带注释的 JSON）时，注释会丢失但结构保留——
+// 这是现网已确立的语义（install.sh:41 注释明确说明），relic 原样保留。
+
+/**
+ * 去除 JSONC 文本的注释（// 行注释 + /* 块注释），返回纯 JSON 文本。
+ * 字符串内的 // 和 /* 不受影响（状态机跟踪 in-string 状态）。
+ * 忠实端口自现网 install.sh:50-78。
+ * @param {string} text
+ * @returns {string}  去注释后的纯 JSON 文本
+ */
+export function stripJsonc(text) {
+  let out = '';
+  let i = 0;
+  let inStr = false;
+  while (i < text.length) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (inStr) {
+      out += c;
+      if (c === '\\') { out += next || ''; i += 2; continue; }
+      if (c === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"') { inStr = true; out += c; i++; continue; }
+    if (c === '/' && next === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * 解析 JSONC 文本（去注释后 JSON.parse）。纯函数，无 I/O。
+ * @param {string} text
+ * @returns {object}
+ */
+export function parseJsonc(text) {
+  return JSON.parse(stripJsonc(text));
+}
+
+/**
+ * 读 JSONC 文件并解析。I/O 封装：readFileSync + parseJsonc。
+ * @param {string} absPath  绝对路径
+ * @returns {object}
+ */
+export function readJsonc(absPath) {
+  return parseJsonc(readFileSync(absPath, 'utf-8'));
 }

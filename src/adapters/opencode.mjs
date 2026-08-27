@@ -13,11 +13,11 @@
 // install: 替换 opencode.jsonc 的 agent 字段 + symlink AGENTS.md（具体在 T8 实现）
 // =============================================================================
 
-import { existsSync } from 'fs';
+import { existsSync, lstatSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { buildPermissionMap } from '../core/permission-map.mjs';
 import { renderAgentsMd } from '../render/agents-md.mjs';
-import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { backup, writeWithHeader, emptyReport, readJsonc } from './base.mjs';
 
 const NATIVE_AGENTS = {
   general: { mode: 'primary' },
@@ -73,12 +73,18 @@ export default {
       return report;
     }
 
-    // opencode.agent.jsonc: 备份 + 写
+    // opencode.agent.jsonc: 备份 + 浅合并 (GAP2 fix)
+    // Q6=完全照搬现网：oc.agent = {...(oc.agent||{}), ...genAgent}
+    // 整个 agent 键替换（同名 agent 以 gen 为准），其他 agent 保留。
+    // 顶层 provider/model/sharing 等完全不动。
     if (fileMap['opencode.agent.jsonc']) {
       try {
         const bak = backup(configPath, opts);
         if (bak) report.backups.push(bak);
-        writeWithHeader(configPath, fileMap['opencode.agent.jsonc']);
+        const genAgent = JSON.parse(fileMap['opencode.agent.jsonc']);
+        const oc = existsSync(configPath) ? readJsonc(configPath) : {};
+        oc.agent = { ...(oc.agent || {}), ...genAgent };
+        writeWithHeader(configPath, JSON.stringify(oc, null, 2) + '\n');
         report.written.push(configPath);
       } catch (e) {
         report.ok = false;
@@ -87,10 +93,16 @@ export default {
     }
 
     // AGENTS.md: 备份 + 写（不用 symlink，直接写——简单且跨平台稳）
+    // 关键：现网 install.sh 把 AGENTS.md 软链到 generated/AGENTS.md。
+    // writeFileSync 会跟随 symlink 写到 generated/ 缓存文件，而非替换 symlink。
+    // 因此写前先 unlink symlink（若是 symlink），写一个全新普通文件。
     if (fileMap['AGENTS.md']) {
       try {
         const bak = backup(agentsMdPath, opts);
         if (bak) report.backups.push(bak);
+        if (existsSync(agentsMdPath) && lstatSync(agentsMdPath).isSymbolicLink()) {
+          unlinkSync(agentsMdPath);
+        }
         writeWithHeader(agentsMdPath, fileMap['AGENTS.md'], { header: '' });
         report.written.push(agentsMdPath);
       } catch (e) {

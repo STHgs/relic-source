@@ -18,7 +18,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { buildPermissionMap } from '../core/permission-map.mjs';
-import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { backup, writeWithHeader, emptyReport, parseJsonc, readJsonc } from './base.mjs';
 
 const ROLE_TO_AGENTS = {
   primary: ['sisyphus'],
@@ -86,7 +86,20 @@ export default {
     try {
       const bak = backup(configPath, opts);
       if (bak) report.backups.push(bak);
-      writeWithHeader(configPath, fileMap['omo.permission.jsonc']);
+      // GAP1 fix: deep-merge permission into existing omo.jsonc
+      // (faithful port of live install.sh:87-94). Preserves
+      // model/fallback_models and other top-level + per-agent fields.
+      const genPerm = JSON.parse(fileMap['omo.permission.jsonc']);
+      const omo = existsSync(configPath) ? readJsonc(configPath) : {};
+      if (!omo['[opencode]']) omo['[opencode]'] = {};
+      if (!omo['[opencode]'].agents) omo['[opencode]'].agents = {};
+      for (const [agentName, agentOverride] of Object.entries(genPerm)) {
+        if (!omo['[opencode]'].agents[agentName]) omo['[opencode]'].agents[agentName] = {};
+        const existing = omo['[opencode]'].agents[agentName];
+        const newPerm = agentOverride.permission || {};
+        existing.permission = { ...(existing.permission || {}), ...newPerm };
+      }
+      writeWithHeader(configPath, JSON.stringify(omo, null, 2) + '\n');
       report.written.push(configPath);
     } catch (e) {
       report.ok = false;
