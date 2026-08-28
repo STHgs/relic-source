@@ -47,10 +47,14 @@ export default {
       const [tool, val] = Object.entries(map)[0];
       if (typeof val === 'string') {
         perm[tool] = val;
-      } else {
+      } else if (tool === 'bash') {
+        // opencode schema 只允许 bash 作为 pattern→action 对象；
+        // 其它工具（edit/webfetch/task/external_directory/doom_loop）只接受单字符串。
         if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
         Object.assign(perm[tool], val);
       }
+      // else: 非 bash 工具带路径 patterns — opencode runtime 无法表达路径级权限，
+      // 由 advisory 层 AGENTS.md（edit-windows-ask / external-dir-ask）兜底；跳过以保配置合法。
     }
     return { 'omo.permission.jsonc': JSON.stringify(result, null, 2) + '\n' };
   },
