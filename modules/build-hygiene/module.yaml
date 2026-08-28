@@ -1,0 +1,45 @@
+# modules/build-hygiene/module.yaml — 构建/安装卫生流程 + 低风险分级
+id: build-hygiene
+permissions: []
+workflows:
+  - id: plan-then-build
+    intent: Plan before build for complex tasks to avoid rework
+    applies_when: any task involving code/config/artifact writes (single-file trivial edits like typo/config-value can skip)
+    priority: critical
+    steps:
+      - "Analyze request and show plan (which files, what changes, why, expected result); plan should be specific enough for the user to judge fit"
+      - "Complex-task definition: any operation that creates, overwrites, or deletes files in the Windows system is a complex task. Windows system includes /mnt/c, /mnt/d, /mnt/e mount points and Windows native paths. This includes but is not limited to: edit tool modifying /mnt/c|d|e files, bash commands writing to /mnt/c|d|e, generating artifacts to Windows drives, cp/mv to Windows drives. Complex tasks must first produce a text-only plan before any edits — the main agent self-delegates the planning (chooses its own mechanism to produce the plan); the plan must be pure text, and no edits execute until the user approves (step 3)"
+      - "After showing the plan, wait for approval keyword (build/go/批准/实施/开始改); do not execute any edit operations before approval; if the user requests plan adjustments, continue planning"
+      - "After user approval, enter build mode and execute edits; after completion, return to plan mode (await approval for the next task)"
+      - "Exception: single-file trivial edits (typo fix, config value change, rename) can be executed directly without plan; when unsure if trivial, default to the plan flow"
+
+  - id: download-cleanup
+    intent: Clean up download/install artifacts to keep environment tidy
+    applies_when: after pip/apt/npm install or curl/wget download
+    priority: normal
+    steps:
+      - "Record all created files/packages to a cleanup list"
+      - "Delete temp downloads after task completes (success or fail)"
+      - "Uninstall temporarily installed packages"
+      - "Confirm cleanup complete: Removed: <list>"
+      - "Cleanup failures must be reported explicitly, never silently leave residue"
+
+  - id: project-scaffold
+    intent: Unified directory structure for new projects, separating code from interaction feedback
+    applies_when: when the user requests it, when an agent needs it during task execution, or when using the /project command
+    priority: normal
+    steps:
+      - "Create `AGENTS.md` in the project root folder as the cross-session/platform handoff file; any agent entering the project must read this file before executing tasks; it has 6 fixed sections: task goal, current progress (checklist), key decisions (conclusion + one-line rationale), known constraints, file map, handoff notes (what was done last round / what to do next / pending clarifications); update the `current progress` and `handoff notes` sections before each session ends (including interrupted exits); write facts only, no speculation; keep under 200 lines"
+      - "Create a standard directory structure for new projects: under the main project folder `<project-name>/`, include `interaction/` (user input and feedback) and `output/` (agent artifacts); the main folder name matches the project name; source code and artifacts go into their respective subfolders, not scattered in the project root"
+      - "`interaction/` name is fixed; used for storing user bug screenshots, feedback, and requirement materials; when the user reports project issues (screenshots, text descriptions), proactively save materials into this folder; when the user signals interaction (e.g., 'I added a screenshot' / 'check the feedback' / 'continue editing'), must first `ls -lt` this folder, prioritize reading the most recently added/modified files, then execute the user's request"
+      - "`output/` artifacts are stored by version number, never overwriting previous versions: major changes use major version numbers `v1` `v2` `v3`, minor changes (including bug fixes, wording tweaks, layout adjustments) use minor version numbers `v1.1` `v1.2`; each version has its own subfolder (e.g., `output/v1/`, `output/v1.1/`); new versions are based on copying the previous version + modifying; the original version is fully preserved for traceability; if the original has defects, note the defect and fix version number in the handoff file (AGENTS.md), do not delete the original; when the user signals interaction, also `ls -lt` the `output/` folder for the latest version and iterate based on it"
+      - "Packaged artifacts (e.g., zip) are placed in the workspace root `/mnt/e/AIworkspace/`, at the same level as the project main folder"
+risk_levels:
+  low:
+    - pip/npm install known public libraries (requests, lodash)
+    - Read/write files in current project directory
+    - Run project tests, lint, build
+    - git status/diff/log (read-only)
+    - Create temp files in workspace
+  medium: []
+  high: []

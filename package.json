@@ -1,0 +1,16 @@
+{
+  "name": "relic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable personal agent-configuration system (rules/workflows/persona).",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "generate": "node src/orchestrator/generate.mjs"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "yaml": "2.9.0"
+  }
+}
