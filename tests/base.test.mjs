@@ -48,7 +48,7 @@ describe('writeWithHeader()', () => {
     const dst = join(scratch, 'sub', 'out.jsonc');
     writeWithHeader(dst, '{"x":1}');
     const out = readFileSync(dst, 'utf8');
-    assert.match(out, /自动生成 — 勿手改/);
+    assert.match(out, /部分自动生成 — agent 键由 relic 生成/);
     assert.match(out, /生成时间: /);
     assert.match(out, /\{"x":1\}$/);
   });

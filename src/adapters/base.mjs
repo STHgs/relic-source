@@ -84,7 +84,8 @@ export function writeWithHeader(absPath, content, opts = {}) {
   const {
     header = [
       '// =============================================================================',
-      '// 自动生成 — 勿手改。源: relic manifest+modules（经 schema.json v2 校验）',
+      '// 部分自动生成 — agent 键由 relic 生成，provider/model/key/mcp 为用户维护。',
+      '// 源: relic manifest+modules（经 schema.json v2 校验）',
       `// 生成时间: ${new Date().toISOString()}`,
       '// =============================================================================',
       '',

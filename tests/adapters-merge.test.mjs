@@ -95,16 +95,11 @@ describe('parseJsonc()', () => {
 // ─── P1: omo install deep-merge (GAP1) ─────────────────────────────────
 
 describe('P1: omo install deep-merge (GAP1)', () => {
-  // Build a fake generated omo.permission.jsonc (flat shape, as generate() emits)
+  // Build a fake generated omo.permission.jsonc (primary-only shape, as generate() emits)
   const genPerm = {
     sisyphus: {
       permission: {
         bash: { 'sudo *': 'ask', 'rm -rf /*': 'deny' },
-      },
-    },
-    hephaestus: {
-      permission: {
-        bash: { 'sudo *': 'ask' },
       },
     },
   };
@@ -262,11 +257,9 @@ describe('P1: omo install deep-merge (GAP1)', () => {
 // ─── P2: opencode install shallow-merge (GAP2) ─────────────────────────
 
 describe('P2: opencode install shallow-merge (GAP2)', () => {
-  // Build a fake generated opencode.agent.jsonc (as generate() emits)
+  // Build a fake generated opencode.agent.jsonc (primary-only shape, as generate() emits)
   const genAgent = {
-    general: { mode: 'primary', permission: { bash: { 'sudo *': 'ask' } } },
-    build: { mode: 'subagent', permission: { bash: { 'sudo *': 'ask' } } },
-    explore: { mode: 'subagent', permission: { bash: { 'sudo *': 'ask' } } },
+    general: { permission: { bash: { 'sudo *': 'ask' } } },
   };
   const fileMap = {
     'opencode.agent.jsonc': JSON.stringify(genAgent, null, 2) + '\n',
@@ -304,11 +297,12 @@ describe('P2: opencode install shallow-merge (GAP2)', () => {
     // Non-governance agent preserved (shallow merge: other agents kept)
     assert.ok(written.agent.myCustomAgent, 'custom agent preserved');
     assert.equal(written.agent.myCustomAgent.mode, 'primary');
-    // Governance agents injected
+    // Governance agent (general only — primary-only) injected
     assert.ok(written.agent.general);
     assert.equal(written.agent.general.permission.bash['sudo *'], 'ask');
-    assert.ok(written.agent.build);
-    assert.ok(written.agent.explore);
+    // build/explore NOT injected (primary-only architecture)
+    assert.equal(written.agent.build, undefined);
+    assert.equal(written.agent.explore, undefined);
   });
 
   it('creates agent field when absent', () => {
@@ -347,7 +341,7 @@ describe('P2: opencode install shallow-merge (GAP2)', () => {
 
     const written = parseJsonc(readFileSync(ocPath, 'utf8'));
     // Q6 = shallow merge: general replaced entirely by gen (customField lost)
-    assert.equal(written.agent.general.mode, 'primary'); // gen's mode
+    assert.equal(written.agent.general.permission.bash['sudo *'], 'ask'); // gen's perm
     assert.equal(written.agent.general.customField, undefined); // lost — faithful to live
     // Other agent preserved
     assert.equal(written.agent.otherAgent.mode, 'primary');

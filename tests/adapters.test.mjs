@@ -17,7 +17,7 @@ import { dirname, resolve, join } from 'path';
 import { parse, stringify } from 'yaml';
 import { createValidator } from '../src/core/validator.mjs';
 import opencodeAdapter from '../src/adapters/opencode.mjs';
-import omoAdapter, { resolveAgents } from '../src/adapters/omo.mjs';
+import omoAdapter from '../src/adapters/omo.mjs';
 import claudeAdapter from '../src/adapters/claude.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,44 +32,36 @@ describe('A1: opencode FileMap keys', () => {
   it('has opencode.agent.jsonc and AGENTS.md', () => {
     assert.deepEqual(Object.keys(fm).sort(), ['AGENTS.md', 'opencode.agent.jsonc']);
   });
-  it('opencode.agent.jsonc has general/build/explore', () => {
+  it('opencode.agent.jsonc has ONLY general (primary-only, no role-flattening)', () => {
     const obj = JSON.parse(fm['opencode.agent.jsonc']);
-    assert.deepEqual(Object.keys(obj).sort(), ['build', 'explore', 'general']);
+    assert.deepEqual(Object.keys(obj).sort(), ['general']);
   });
 });
 
-describe('A2: omo FileMap keys + resolveAgents', () => {
+describe('A2: omo FileMap keys + primary-only injection', () => {
   const fm = omoAdapter.generate(policies, fakeEnv(new Set()));
   it('has only omo.permission.jsonc', () => {
     assert.deepEqual(Object.keys(fm), ['omo.permission.jsonc']);
   });
-  it('resolveAgents([primary,deep]) = [sisyphus, hephaestus]', () => {
-    const r = resolveAgents(['primary', 'deep']);
-    assert.deepEqual(r.sort(), ['hephaestus', 'sisyphus']);
+  it('omo.permission.jsonc contains ONLY sisyphus (primary-only, no 4-agent mapping)', () => {
+    const obj = JSON.parse(fm['omo.permission.jsonc']);
+    assert.deepEqual(Object.keys(obj).sort(), ['sisyphus']);
   });
-  it('resolveAgents([all]) = all 4 agents', () => {
-    const r = resolveAgents(['all']);
-    assert.equal(r.length, 4);
-    assert.ok(r.includes('sisyphus'));
-    assert.ok(r.includes('hephaestus'));
-    assert.ok(r.includes('sisyphus-junior'));
-    assert.ok(r.includes('atlas'));
+  it('sisyphus has permission block with bash rules', () => {
+    const obj = JSON.parse(fm['omo.permission.jsonc']);
+    assert.ok(obj.sisyphus.permission.bash, 'bash key missing');
   });
 });
 
-describe('A3: opencode role-flattening', () => {
+describe('A3: opencode primary-only injection', () => {
   const fm = opencodeAdapter.generate(policies, fakeEnv(new Set()));
   const obj = JSON.parse(fm['opencode.agent.jsonc']);
-  it('ALL runtime perms appear under general AND build AND explore (identical maps)', () => {
-    // 取三个 agent 的 permission 字段，必须严格相等
-    const g = JSON.stringify(obj.general.permission);
-    const b = JSON.stringify(obj.build.permission);
-    const e = JSON.stringify(obj.explore.permission);
-    assert.equal(g, b, 'general != build');
-    assert.equal(b, e, 'build != explore');
+  it('general has permission with bash rules', () => {
+    assert.ok(obj.general.permission.bash, 'bash key missing in general');
   });
-  it('sudo-ask rule present in general.permission.bash', () => {
-    assert.ok(obj.general.permission.bash, 'bash key missing');
+  it('build and explore are NOT injected (primary-only)', () => {
+    assert.equal(obj.build, undefined, 'build should not be present');
+    assert.equal(obj.explore, undefined, 'explore should not be present');
   });
 });
 

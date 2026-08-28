@@ -67,3 +67,34 @@ describe('R3: 标准流程 with numbered steps', () => {
     assert.match(md, /3\. Use multimodal-looker for tables/);
   });
 });
+
+describe('R4: 对 subagent 的治理提示 section', () => {
+  it('contains the section header', () => {
+    assert.match(md, /## 对 subagent 的治理提示/);
+  });
+  it('directly addresses subagents', () => {
+    assert.match(md, /你是 subagent/);
+  });
+  it('lists bash constraint rules for subagents', () => {
+    assert.match(md, /不跑破坏性命令/);
+    assert.match(md, /不碰 Windows 挂载盘/);
+    assert.match(md, /不格式化磁盘/);
+    assert.match(md, /不删治理文件/);
+  });
+  it('explains soft-constraint nature', () => {
+    assert.match(md, /软约束/);
+  });
+});
+
+describe('R5: 注入哨兵（RELIC IS RUNNING）', () => {
+  it('contains the sentinel rule in 给助手的话 section', () => {
+    assert.match(md, /## 给助手的话/);
+    assert.match(md, /RELIC IS RUNNING/);
+  });
+  it('is rule number 0 (highest priority, first read)', () => {
+    assert.match(md, /0\. \*\*注入哨兵\*\*/);
+  });
+  it('states the purpose: AGENTS.md injection verification', () => {
+    assert.match(md, /AGENTS\.md 注入成功/);
+  });
+});

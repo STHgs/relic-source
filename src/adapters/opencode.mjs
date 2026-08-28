@@ -1,16 +1,16 @@
 // =============================================================================
 // src/adapters/opencode.mjs — OpenCode 原生平台适配器
 // =============================================================================
-// 从前身 generate.mjs:148-176 端口：buildOpencodeAgent + AGENTS.md。
+// 架构修订（v4.1 findings-staging D 节）：**只治主 agent**
+// 执行层 runtime permission 只注入 PRIMARY_AGENT（general）。
+// 原生 build/explore 的 permission 由 OpenCode 内置默认管，relic 不注入。
+// 与 omo 适配器保持一致：平台代码管 subagent，relic 管主 agent + AGENTS.md。
 //
-// 角色策略（foundation-plan §2 已记录决策）：**role-flattening**
-// 原生 OpenCode 没有 OMO 的 applies_to 角色概念，前身做法是把所有 runtime
-// 权限应用到所有 native agent（general/build/explore）。relic 原样保留——
-// 过包含是安全的（runtime 仍按 pattern ask/deny）。
+// 旧版 role-flattening（把 runtime 权限塞给 general/build/explore 三 agent）
+// 已废弃——那是过包含，且与"只治主 agent"架构不一致。
 //
-// FileMap keys (A1): { 'opencode.agent.jsonc', 'AGENTS.md' }
-//
-// install: 替换 opencode.jsonc 的 agent 字段 + symlink AGENTS.md（具体在 T8 实现）
+// FileMap keys: { 'opencode.agent.jsonc', 'AGENTS.md' }
+// install: 浅合并 opencode.jsonc 的 agent 字段 + 写 AGENTS.md
 // =============================================================================
 
 import { existsSync, lstatSync, unlinkSync } from 'fs';
@@ -19,11 +19,11 @@ import { buildPermissionMap } from '../core/permission-map.mjs';
 import { renderAgentsMd } from '../render/agents-md.mjs';
 import { backup, writeWithHeader, emptyReport, readJsonc } from './base.mjs';
 
-const NATIVE_AGENTS = {
-  general: { mode: 'primary' },
-  build: { mode: 'subagent' },
-  explore: { mode: 'subagent' },
-};
+/**
+* 该平台的主 agent 名——执行层 runtime permission 只注入到此 agent。
+* 新 harness 接入时改这一个常量即可。
+*/
+const PRIMARY_AGENT = 'general';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
@@ -34,24 +34,21 @@ export default {
   },
 
   generate(policies, _env) {
-    // opencode.agent.jsonc
+    // opencode.agent.jsonc: 只注入 PRIMARY_AGENT 的 permission（含 mode 保留主 agent 标识）
     const agentObj = {};
-    for (const [name, base] of Object.entries(NATIVE_AGENTS)) {
-      agentObj[name] = { ...base, permission: {} };
-    }
-    // role-flattening: 所有 runtime 权限塞给所有 native agent
+    agentObj[PRIMARY_AGENT] = { mode: 'primary', permission: {} };
+    const perm = agentObj[PRIMARY_AGENT].permission;
     for (const p of policies.permissions || []) {
       if (p.enforcement !== 'runtime') continue;
+      // 只处理 applies_to 含 primary 或 all 的规则——只治主 agent
+      if (!p.applies_to.includes('primary') && !p.applies_to.includes('all')) continue;
       const map = buildPermissionMap(p);
       const [tool, val] = Object.entries(map)[0];
-      for (const name of Object.keys(agentObj)) {
-        const perm = agentObj[name].permission;
-        if (typeof val === 'string') {
-          perm[tool] = val;
-        } else {
-          if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
-          Object.assign(perm[tool], val);
-        }
+      if (typeof val === 'string') {
+        perm[tool] = val;
+      } else {
+        if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
+        Object.assign(perm[tool], val);
       }
     }
 

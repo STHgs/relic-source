@@ -1,45 +1,31 @@
 // =============================================================================
 // src/adapters/omo.mjs — OMO (Oh-My-OpenCode) 平台适配器
 // =============================================================================
-// 从前身 generate.mjs:109-131 端口：buildOmoPermission。
+// 架构修订（v4.1 findings-staging D 节）：**只治主 agent**
+// 执行层 runtime permission 只注入 PRIMARY_AGENT（sisyphus）。
+// subagent 的 permission 由 OMO 插件 TS 工厂硬编码（oracle/explore/librarian
+// 等 deny write/edit/task），relic 不注入——经三轮 librarian 查证：
+//   1. omo.jsonc 的 agentOverrides 路径对 sisyphus LIVE（经 deepMerge 生效）
+//   2. subagent permission 不读 omo.jsonc，来自 TS 工厂代码
+//   3. AGENTS.md 被 OpenCode V2 注入所有 agent，subagent 直接读到
+// 劝导层 AGENTS.md 负责对 subagent 说话（subagent 直接读，不需主 agent 转达）。
 //
-// 角色策略（foundation-plan §2）：**role-preserving**
-// applies_to 角色映射到具体 agent 名：
-//   primary  → sisyphus
-//   deep     → hephaestus
-//   subagent → sisyphus-junior, atlas
-//   all      → 全部 4 个
-// 前身 generate.mjs:38-53 的 resolveAgents 逻辑。
+// 新 harness 接入只需声明 PRIMARY_AGENT 常量，不再画 ROLE_TO_AGENTS 全映射表。
 //
-// FileMap keys (A2): { 'omo.permission.jsonc' }
-// install: deep-merge 进 ~/.omo/omo.jsonc 各 agent 的 permission 字段
+// FileMap keys: { 'omo.permission.jsonc' }
+// install: deep-merge 进 ~/.omo/omo.jsonc [opencode].agents.sisyphus.permission
 // =============================================================================
 
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { buildPermissionMap } from '../core/permission-map.mjs';
-import { backup, writeWithHeader, emptyReport, parseJsonc, readJsonc } from './base.mjs';
-
-const ROLE_TO_AGENTS = {
-  primary: ['sisyphus'],
-  deep: ['hephaestus'],
-  subagent: ['sisyphus-junior', 'atlas'],
-};
-const ALL_AGENTS = ['sisyphus', 'hephaestus', 'sisyphus-junior', 'atlas'];
+import { backup, writeWithHeader, emptyReport, readJsonc } from './base.mjs';
 
 /**
- * applies_to 角色数组 → 具体 agent 名数组。
- * @param {string[]} appliesTo
- * @returns {string[]}
- */
-export function resolveAgents(appliesTo) {
-  if (appliesTo.includes('all')) return [...ALL_AGENTS];
-  const set = new Set();
-  for (const role of appliesTo) {
-    for (const a of ROLE_TO_AGENTS[role] || []) set.add(a);
-  }
-  return [...set];
-}
+* 该平台的主 agent 名——执行层 runtime permission 只注入到此 agent。
+* 新 harness 接入时改这一个常量即可。
+*/
+const PRIMARY_AGENT = 'sisyphus';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
@@ -51,20 +37,19 @@ export default {
 
   generate(policies, _env) {
     const result = {};
+    result[PRIMARY_AGENT] = { permission: {} };
+    const perm = result[PRIMARY_AGENT].permission;
     for (const p of policies.permissions || []) {
       if (p.enforcement !== 'runtime') continue;
-      const agents = resolveAgents(p.applies_to);
+      // 只处理 applies_to 含 primary 或 all 的规则——只治主 agent
+      if (!p.applies_to.includes('primary') && !p.applies_to.includes('all')) continue;
       const map = buildPermissionMap(p);
       const [tool, val] = Object.entries(map)[0];
-      for (const agent of agents) {
-        if (!result[agent]) result[agent] = { permission: {} };
-        const perm = result[agent].permission;
-        if (typeof val === 'string') {
-          perm[tool] = val;
-        } else {
-          if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
-          Object.assign(perm[tool], val);
-        }
+      if (typeof val === 'string') {
+        perm[tool] = val;
+      } else {
+        if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
+        Object.assign(perm[tool], val);
       }
     }
     return { 'omo.permission.jsonc': JSON.stringify(result, null, 2) + '\n' };
