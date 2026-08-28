@@ -11,3 +11,6 @@ generated/
 
 # Backup files
 *.bak.*
+
+# Export archives
+*.tar.gz

@@ -24,6 +24,7 @@
 - [x] 模块忠实化：5 modules 补全缺失规则(mount-ask/edit-windows-ask/agent-self-protection/27 windows-write patterns/alternatives/pdf-write/project-scaffold workflow) — Tier-1b deep-equal PASS(relic manifest 产出与 live generated/ 内容等价)
 - [x] P4 文档：Q1=丢弃 skills，A3 workflow 渲染替代（无代码，记录在本文件 §3）
 - [x] Wave4 Cutover B→A 执行：relic install 真写现网（4 文件 written，3 backups，0 errors）→ sentinels 全存活（model/fallback_models/11 agents/provider/3 agents/AGENTS.md 软链→普通文件）→ live policies.yaml 归档到 backups/（Q5）→ 209 tests 207 pass 0 fail 2 skip（Tier1 skip 因 policies.yaml 已归档，预期）。**relic 现为唯一治理系统**。
+- [x] 热插拔部署 + 分支生命周期：deploy/export CLI + git-ops + deploy-lifecycle + export-pack 模块，241 tests 239 pass 0 fail 2 skip（3 not ok 为预存 cli.test.mjs hook 问题，非本轮引入）。方案见 output/v4/deploy-export-plan.md。
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -51,6 +52,7 @@
 - 结论（6 决策点，用户拍板 2026-08-27）：Q1=丢弃 skills（A3 workflow 渲染替代，无代码 P4）；Q2=只 OpenCode 近期（Tier1 只验证 opencode+omo）；Q3=output 入 git 跟踪；Q4=1 轮快途（Tier1+Tier2 全绿即切 B→A，无影子运行）；Q5=policies.yaml 归档到 backups（cutover 时 mv）；Q6=opencode 浅合并完全照搬现网（oc.agent={...(oc.agent||{}),...genAgent}）。理由：范围收敛、快途、低风险。
 - 结论（GAP1 fix 架构，2026-08-27）：generate 保持扁平产出（{agent:{permission}}，匹配 live generated/ 形状 + Tier1 等价 + Option B 兼容），ALL merge 逻辑放 install。加 stripJsonc/parseJsonc/readJsonc 共享 helper 到 base.mjs（从 live install.sh 提取去重）。omo install 深合并 permission 进 [opencode].agents.<name>.permission（忠实端口 install.sh:87-94）。理由：改 generate 形状会破坏 Tier1 diff + live install.sh 消费。
 - 结论（模块忠实化，2026-08-27）：5 modules 补全缺失规则至与 live policies.yaml 内容等价（mount-ask/edit-windows-ask/agent-self-protection/27 windows-write patterns/external-dir patterns/alternatives/pdf-write+project-scaffold workflow/sudo-ask 加 subagent）。Tier-1b deep-equal 验证 PASS。理由：Q5=归档 live policies.yaml 前，relic manifest 必须是忠实继任者。
+- 结论（热插拔部署，2026-08-28）：不拘泥单一源，deploy/export 两命令实现热插拔。每次 deploy 创建 git 分支追踪部署生命周期，export 封存分支并打 tag。理由：relic 三段式架构（detect→generate→install）天然支持从任意副本部署，单一源是前身软链习惯非架构约束；跨平台移植用命令代替链接更可控。
 
 ## 4. 已知约束
 
@@ -70,16 +72,15 @@
 - package.json / package-lock.json — ESM 工具链（ajv@8.20.0 + yaml@2.9.0, node≥20）
 - schema.json — v2 唯一权威契约（enforcement 无 hook，personas/modules 槽位已激活为 registry，profiles 增量加）
 - src/ — 源码：
-  - core/ — loader / validator(ajv,+createModuleValidator) / permission-map / conflict(3 层,+detectCrossModuleConflicts) / inject（+CLI 入口） / module-loader（loadProfile+mergeFragments，方向 3 核心）
+  - core/ — loader / validator(ajv,+createModuleValidator) / permission-map / conflict(3 层,+detectCrossModuleConflicts) / inject（+CLI 入口） / module-loader（loadProfile+mergeFragments，方向 3 核心） / **git-ops**（git 操作封装，deploy/export 用） / **deploy-lifecycle**（分支命名+序号+skill 清理） / **export-pack**（文件收集+HANDOFF.md+tar.gz）
   - render/ — agents-md.mjs（AGENTS.md 渲染器，+meta.profile 头）
   - adapters/ — base（+stripJsonc/parseJsonc/readJsonc JSONC helpers）/ opencode（+install 浅合并 GAP2）/ omo（+install 深合并 GAP1）/ claude（3 平台适配器）
   - orchestrator/ — generate.mjs（流水线 + CLI 入口，+--profile）
   - index.mjs — 公共 API 门面（pipeline 一条龙，+profile 路由）
-- scripts/ — rollback.mjs（P3 GAP4，restoreFromBackup+rollbackPaths+CLI）/ tier1-equivalence.mjs（P5，generate-only 等价 harness）/ tier2-sentinel.mjs（P6，install-semantics sentinel harness）
-- tests/ — 20 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 208 tests
-- tests/ — 20 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 209 tests
-- scripts/ — rollback.mjs（回滚工具）/ tier1-equivalence.mjs（P5 等价 harness，cutover 后因 policies.yaml 归档 skip）/ tier2-sentinel.mjs（P6 sentinel harness）
-- .gitignore / .gitattributes — git 基础配置
+- scripts/ — rollback.mjs（P3 GAP4）/ tier1-equivalence.mjs（P5）/ tier2-sentinel.mjs（P6）/ **deploy.mjs**（热插拔部署 CLI）/ **export.mjs**（导出封存 CLI）
+- tests/ — 23 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 241 tests（239 pass 0 fail 2 skip + 3 预存 not ok）
+- .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
+- output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - （前身，已归档）~/.config/opencode/agent-governance/ — policies.yaml 已 mv 到 backups/policies.yaml.archived-20260827-cutover；generated/ + install.sh + generate.mjs + lib/ 仍在但 relic 不再用；只读参考可删
 
 ## 6. 交接说明
@@ -92,10 +93,18 @@
   - 模块忠实化：5 modules 补全缺失规则。Tier-1b deep-equal PASS
   - 软链 cutover blocker 修复：opencode.mjs AGENTS.md 写前 unlink symlink（+1 test）
   - **Wave4 Cutover B→A 执行**：relic install 真写现网（4 文件 written，3 backups，0 errors）→ sentinels 全存活（model=glm-5.2/fallback=[minimax-m3,kimi-k3]/11 agents 全在/provider 2 providers 全在/AGENTS.md 软链→普通文件 10512 chars）→ live policies.yaml 归档到 backups/policies.yaml.archived-20260827-cutover（Q5）。**relic 现为唯一治理系统**。回滚预案：scripts/rollback.mjs + backups/*.bak.*
+- 本轮（热插拔部署，241 tests 全绿）：
+  - 方案产出：output/v4/deploy-export-plan.md（热插拔部署+分支生命周期+导出封存）
+  - 新增 3 核心模块：git-ops.mjs（git 操作封装）/ deploy-lifecycle.mjs（分支命名+序号+skill 清理）/ export-pack.mjs（文件收集+HANDOFF.md+tar.gz）
+  - 新增 2 CLI 入口：scripts/deploy.mjs（remote 检测→分支创建→generate→清理→commit→push）/ scripts/export.mjs（确认 deploy 分支→打包+HANDOFF→tar.gz→tag+push）
+  - 新增 3 测试文件：git-ops.test.mjs(15) + deploy-lifecycle.test.mjs(12) + export-pack.test.mjs(4) = 31 新测试全绿
+  - package.json 加 deploy/export 脚本；.gitignore 加 *.tar.gz
 
 **下轮该做**：
 - ✅ 迁移完成。relic 是现网唯一治理源（manifest+modules → generate → install）。
 - 日常改规则：编辑 relic/modules/<id>/module.yaml → `npm run generate`（真写，A2 决策）→ 生效。
+- **首次部署**：`npm run deploy`（会创建 GitHub 私有仓库 + deploy 分支）
+- **导出封存**：`npm run export`（在 deploy 分支上跑，打 tar.gz + tag）
 - 回滚（如需）：`node scripts/rollback.mjs`（恢复 3 路径最新 .bak）+ backups/policies.yaml.archived-*。
 - 其他候选仍开放：人设功能 / Codex-Cursor 适配器 / 方向 2（workflow steps 折叠省 token）。
 - 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则）。
