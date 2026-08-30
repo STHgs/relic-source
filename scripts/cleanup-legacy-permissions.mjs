@@ -27,23 +27,29 @@ const OMO_CONFIG = join(homedir(), '.omo', 'omo.jsonc');
 
 let changed = false;
 
-// ─── opencode.jsonc: 删 build/explore 整条（relic 注入的遗留） ─────────
+// ─── opencode.jsonc: 删非主 agent 的 permission 字段（保留 agent 条目 + mode） ─
+// 不删整条 agent——OpenCode V2 的 default_agent fallback 链依赖 build 等存在。
+// 只删 relic 注入的 permission，让平台内置默认接管。
 try {
   const oc = readJsonc(OPENCODE_CONFIG);
   const agents = oc.agent || {};
-  const toDelete = Object.keys(agents).filter(k => k !== OPENCODE_PRIMARY);
   let deleted = 0;
-  for (const k of toDelete) {
-    delete agents[k];
-    deleted++;
+  const deletedNames = [];
+  for (const [name, agent] of Object.entries(agents)) {
+    if (name === OPENCODE_PRIMARY) continue;
+    if (agent.permission) {
+      delete agent.permission;
+      deleted++;
+      deletedNames.push(name);
+    }
   }
   if (deleted > 0) {
     oc.agent = agents;
     writeWithHeader(OPENCODE_CONFIG, JSON.stringify(oc, null, 2) + '\n');
-    console.log(`opencode.jsonc: deleted ${deleted} legacy agent(s): ${toDelete.join(', ')}`);
+    console.log(`opencode.jsonc: deleted permission from ${deleted} legacy agent(s): ${deletedNames.join(', ')}`);
     changed = true;
   } else {
-    console.log('opencode.jsonc: no legacy agents to delete');
+    console.log('opencode.jsonc: no legacy permissions to delete');
   }
 } catch (e) {
   console.error(`opencode.jsonc cleanup failed: ${e.message}`);
