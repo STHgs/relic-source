@@ -155,7 +155,13 @@ export function renderAgentsMd(policies) {
   lines.push('');
   lines.push('## 给助手的话');
   lines.push('');
-  lines.push('0. **注入哨兵**——每次对话输出前，第一句打出 `RELIC IS RUNNING`。这是 AGENTS.md 注入成功的判读标志：用户靠这句确认治理已加载。若你读到本条但输出时漏了这句，说明你没遵守本文件——自我检查。');
+  lines.push('0. **注入哨兵**——每次对话输出前，第一句原样输出以下红色标记（diff 代码块的删除行在 UI 中渲染为红色）。`MMDD-HHMMSS` 换成输出时刻的时间戳（2位月2位日-2位时2位分2位秒，每轮现取，不得照抄本文件里的示例值）——时间戳证明标记是本 session 实时打出的，不是复读旧文本：');
+  lines.push('````');
+  lines.push('```diff');
+  lines.push('- RELIC IS RUNNING @ MMDD-HHMMSS');
+  lines.push('```');
+  lines.push('````');
+  lines.push('这是 AGENTS.md 注入成功的判读标志：用户靠这句确认治理已加载。若你读到本条但输出时漏了这句，说明你没遵守本文件——自我检查。');
   lines.push('1. **硬约束绕不过**——不要尝试，直接按替代方案走。');
   lines.push('2. **中风险操作不用回避**——系统弹窗是给用户看的，不是给你看的。你正常发起 `webfetch`、访问工作区外路径，让系统去弹窗。');
   lines.push('3. **低风险直接做**——装公开库、改项目文件、跑测试，不用请示。');

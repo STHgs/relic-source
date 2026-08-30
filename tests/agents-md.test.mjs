@@ -97,4 +97,12 @@ describe('R5: 注入哨兵（RELIC IS RUNNING）', () => {
   it('states the purpose: AGENTS.md injection verification', () => {
     assert.match(md, /AGENTS\.md 注入成功/);
   });
+  it('instructs red rendering via diff fenced block', () => {
+    assert.match(md, /```diff\n- RELIC IS RUNNING @ MMDD-HHMMSS\n```/);
+    assert.match(md, /渲染为红色/);
+  });
+  it('requires per-turn fresh timestamp, not a hardcoded one', () => {
+    assert.match(md, /每轮现取/);
+    assert.match(md, /不得照抄本文件里的示例值/);
+  });
 });
