@@ -55,6 +55,8 @@ modules:
     name: Build Hygiene
   - id: pdf-handling
     name: PDF Handling
+  - id: video-to-notes
+    name: Video to Notes
 
 # profiles：按场景选模块子集（modules: all = 全部；default:true = 不传 --profile 时用这个）
 profiles:
@@ -67,4 +69,4 @@ profiles:
     modules: [sudo-safety, disk-protect, web-safety, build-hygiene]
   - id: personal
     name: Personal profile
-    modules: [pdf-handling, build-hygiene]
+    modules: [pdf-handling, video-to-notes, build-hygiene]

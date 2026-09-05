@@ -1,0 +1,37 @@
+# modules/video-to-notes/module.yaml — 视频转复习讲义流程
+id: video-to-notes
+permissions: []
+workflows:
+  - id: video-to-notes
+    intent: Extract knowledge points from course videos and generate structured PDF lecture notes with reference images
+    applies_when: user provides a course/lecture video and wants review notes or lecture summary
+    priority: high
+    steps:
+      - "Verify video file exists in interaction/ folder; if missing, wait for user to place it"
+      - "Check ffmpeg availability: if not installed, use pip install --user --break-system-packages imageio-ffmpeg (provides static ffmpeg binary, no sudo needed)"
+      - "Get video metadata with ffmpeg -i: duration, resolution, codec, fps"
+      - "Create output/vN/ and output/vN/frames/ output/vN/audio/ subdirectories (N = version number, start from 1)"
+      - "Extract key frames: ffmpeg -vf select='gt(scene,0.3)',fps=1/15 -vsync vfr -q:v 2 frames/frame_%04d.jpg (scene detection + 15s minimum interval)"
+      - "Deduplicate frames with Python+Pillow: resize to 64x36 thumbnails, compute pixel diff between consecutive frames, keep frames where diff > threshold (1500)"
+      - "Extract audio: ffmpeg -i video -vn -ac 1 -ar 16000 -c:a pcm_s16le audio.wav (16kHz mono optimal for whisper)"
+      - "Install faster-whisper: pip install --user --break-system-packages faster-whisper"
+      - "Transcribe audio with faster-whisper: use medium model for Chinese (tiny has too many errors); set HF_ENDPOINT=https://hf-mirror.com and HF_HUB_DISABLE_XET=1 if HuggingFace direct download fails (network/Xet 401)"
+      - "Run transcription in background with setsid, log progress to /tmp/opencode/transcribe_log.txt; medium model on CPU takes ~25min for 44min audio"
+      - "Analyze key frames with look_at (multimodal-looker): extract PPT titles, text content, diagrams, formulas; pass single frames if multi-frame fails"
+      - "Read full transcript text with Read tool (use offset/limit for large files >2000 lines)"
+      - "Synthesize knowledge points: combine transcript + frame analysis, structure by chapter/section, correct transcription errors using domain knowledge and frame content"
+      - "Select important reference frames: copy frames containing diagrams/formulas/tables to output/vN/ref_*.jpg for PDF embedding"
+      - "Generate PDF with reportlab: register CID font (STSong-Light for CJK, TTC fonts with PS outlines are incompatible); use ParagraphStyle for hierarchy; embed ref images with Image flowable; use Tables for structured data; save to output/vN/"
+      - "Verify PDF: render pages to PNG with pymupdf, check Chinese text rendering with look_at (no missing glyphs/boxes)"
+      - "Update AGENTS.md handoff file with progress, decisions, and file map"
+      - "If upgrading transcription model: copy output/vN to output/vN.1, re-run with larger model, regenerate PDF with updated source attribution"
+risk_levels:
+  low:
+    - "pip install --user --break-system-packages (public libraries: imageio-ffmpeg, faster-whisper, reportlab, pillow, pymupdf)"
+    - "mkdir output directories"
+    - "ffmpeg frame extraction and audio extraction (read-only on source video)"
+  medium:
+    - "HuggingFace model download (~769MB for medium); use hf-mirror.com if direct download times out"
+    - "Background transcription process (CPU-intensive, ~30min)"
+  high:
+    - "Installing system-level ffmpeg via apt (requires sudo); prefer pip imageio-ffmpeg to avoid sudo"
