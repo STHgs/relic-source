@@ -14,3 +14,7 @@ generated/
 
 # Export archives
 *.tar.gz
+
+# Sync state (per-clone, untracked)
+.last-sync
+.relic-deploy

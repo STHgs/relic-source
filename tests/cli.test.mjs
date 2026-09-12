@@ -11,7 +11,7 @@
 //   I4: inject id 冲突 → 退出 2
 // =============================================================================
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, copyFileSync, readFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
@@ -68,7 +68,8 @@ describe('G1: generate --dry-run', () => {
 });
 
 describe('G2: generate with missing --policies file → exit 1', () => {
-  const r = runCli(GEN_CLI, ['--policies', join(scratch, 'nope.yaml')]);
+  // 自包含路径：不依赖 beforeEach 建立的 scratch（describe 体执行时序因运行模式而异）
+  const r = runCli(GEN_CLI, ['--policies', join(tmpdir(), 'relic-cli-g2-nope.yaml')]);
   it('exits 1', () => assert.equal(r.code, 1));
   it('stderr has error JSON', () => {
     const e = parseJson(r.stderr);
@@ -78,7 +79,7 @@ describe('G2: generate with missing --policies file → exit 1', () => {
 });
 
 describe('G3: generate with invalid policies (schema fail) → exit 1', () => {
-  const badPath = join(scratch, 'bad.yaml');
+  const badPath = join(tmpdir(), 'relic-cli-g3-bad.yaml');
   writeFileSync(badPath, stringify({
     meta: { version: 2, description: 'bad' },
     permissions: [{
@@ -127,9 +128,12 @@ describe('I2: inject missing --type → exit 1', () => {
 });
 
 describe('I3: inject --apply writes + runs generate (isolated policies)', () => {
-  // 隔离 manifest + modules 副本（manifest 模式需要 modules/ 目录）
-  const isoPolicies = join(scratch, 'policies.yaml');
-  const isoModules = join(scratch, 'modules');
+  // 隔离 manifest + modules 副本（manifest 模式需要 modules/ 目录）。
+  // 自建隔离目录（describe 体执行时序因运行模式而异，不用 beforeEach-scratch）。
+  const isoRoot = mkdtempSync(join(tmpdir(), 'relic-cli-i3-'));
+  after(() => rmSync(isoRoot, { recursive: true, force: true }));
+  const isoPolicies = join(isoRoot, 'policies.yaml');
+  const isoModules = join(isoRoot, 'modules');
   copyFileSync(POLICIES, isoPolicies);
   // 复制全部 5 个模块（default profile = full 需要 all modules）
   for (const id of ['sudo-safety', 'disk-protect', 'web-safety', 'build-hygiene', 'pdf-handling']) {
