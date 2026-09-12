@@ -1,20 +1,10 @@
 // =============================================================================
-// src/render/agents-md.mjs — AGENTS.md 渲染器（从前身 buildAgentsMd 端口）
+// src/render/agents-md.mjs — AGENTS.md 渲染器
 // =============================================================================
-// 输入：policies 对象（schema v2 形状，含默认值）
-// 输出：AGENTS.md 文本字符串
-//
-// 与前身的关系：纯端口，语义不变——
-//   - 硬约束表（runtime 权限）
-//   - 替代方案（有 alternatives 的规则）
-//   - 风险分级（low/medium/high）
-//   - 标准流程（workflows）
-//   - 给助手的话（固定收尾）
-//
-// 差异（relic 重写）：
-//   - 纯函数，不写盘（写盘是适配器 install 的事）——便于测试、便于多平台复用
-//   - 不带生成时间戳（前身每次 new Date() 导致 round-trip 不稳；时间戳由 writeWithHeader 在写盘层加）
-//   - 不带"源文件路径"硬编码（relic 多平台，路径不固定）——改由调用方决定是否注入
+// 架构：骨架 + 模块索引表
+//   - 骨架（固定，不随自定义区变动）：硬约束表、替代方案、subagent 治理提示、给助手的话
+//   - 模块索引表（极小）：workflow id + 触发条件，agent 按需 Read module.yaml
+// workflows/risk_levels 详细步骤留在 modules/ 下，不渲染进 AGENTS.md，避免上下文浪费
 // =============================================================================
 
 /**
@@ -32,11 +22,6 @@ function formatPatternsCell(p) {
 }
 
 const ACTION_ZH = { ask: '弹窗确认', deny: '直接拒绝', allow: '放行' };
-const LEVEL_LABEL = {
-  low: '🟢 低风险（直接执行，不用请示）',
-  medium: '🟡 中风险（系统会弹窗，你照常发起即可）',
-  high: '🔴 高风险（仅主助手，系统会弹窗确认）',
-};
 
 /**
  * 渲染 policies 为 AGENTS.md 文本。
@@ -97,40 +82,25 @@ export function renderAgentsMd(policies) {
     }
   }
 
-  // 风险分级
-  if (policies.risk_levels) {
-    lines.push('## 风险分级（避免消极回避）');
-    lines.push('');
-    lines.push('**不要因为害怕审批而回避正常工作。** 按风险等级判断：');
-    lines.push('');
-    for (const level of ['low', 'medium', 'high']) {
-      const items = policies.risk_levels[level];
-      if (!items || items.length === 0) continue;
-      lines.push(`### ${LEVEL_LABEL[level]}`);
-      for (const item of items) {
-        lines.push(`- ${item}`);
-      }
-      lines.push('');
-    }
-  }
-
-  // 标准流程
+  // 模块索引表（替代原风险分级+标准流程全量渲染）
+  // workflows 和 risk_levels 的详细内容留在 modules/ 下的 yaml 文件中，
+  // agent 按需用 Read 工具读取对应 module.yaml 获取步骤和风险分级。
+  // AGENTS.md 只保留索引，保持精简，不随自定义内容增长。
   if (policies.workflows && policies.workflows.length > 0) {
-    lines.push('## 标准流程');
+    lines.push('## 自定义流程索引');
     lines.push('');
+    lines.push('> 以下流程的详细步骤和风险分级存储在 `modules/` 下的 yaml 文件中。');
+    lines.push('> 遇到相关任务时，用 Read 工具读取 `modules/<对应模块>/module.yaml` 获取完整步骤。');
+    lines.push('');
+    lines.push('| 流程 | 优先级 | 触发条件 | 文件路径 |');
+    lines.push('|---|---|---|---|');
     for (const w of policies.workflows) {
-      const priorityTag = (w.priority && w.priority !== 'normal') ? ` [${w.priority}]` : '';
-      lines.push(`### ${w.id}${priorityTag}`);
-      lines.push(`*${w.intent}*`);
-      if (w.applies_when) {
-        lines.push(`**何时用**: ${w.applies_when}`);
-      }
-      lines.push('');
-      w.steps.forEach((s, i) => {
-        lines.push(`${i + 1}. ${s}`);
-      });
-      lines.push('');
+      const priorityTag = (w.priority && w.priority !== 'normal') ? w.priority : 'normal';
+      const trigger = w.applies_when ? w.applies_when.substring(0, 50) : '—';
+      const modulePath = `modules/?/${w.id} (用 Glob: modules/*/${w.id} 定位)`;
+      lines.push(`| ${w.id} | ${priorityTag} | ${trigger} | ${modulePath} |`);
     }
+    lines.push('');
   }
 
   lines.push('---');

@@ -1,9 +1,8 @@
 // =============================================================================
-// tests/workflows.test.mjs — 验证主 policies.yaml 的 workflow 渲染
+// tests/workflows.test.mjs — 验证主 policies.yaml 的 workflow 索引渲染
 // =============================================================================
-// A3 验证：add-permission 和 add-workflow 两条对话式入口 workflow
-// 在渲染输出（AGENTS.md）里出现，含 heading + 编号 steps。
-// 这证明：用户/助手读 AGENTS.md 就能按步骤引导加规则，无需独立 skill。
+// A3 验证（骨架化架构）：add-permission 和 add-workflow 在索引表中出现。
+// 详细步骤不再渲染进 AGENTS.md，留在 policies.yaml inline + module.yaml 中。
 // =============================================================================
 
 import { describe, it } from 'node:test';
@@ -16,7 +15,6 @@ import { renderAgentsMd } from '../src/render/agents-md.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
 
-// 拆分后 policies.yaml 是 manifest；入口 workflow 留 inline，走 loadProfile(full) 合并
 const r = loadProfile({
   manifestPath: resolve(REPO, 'policies.yaml'),
   modulesDir: resolve(REPO, 'modules'),
@@ -24,52 +22,43 @@ const r = loadProfile({
 const policies = r.policies;
 const md = renderAgentsMd(policies);
 
-describe('A3: add-permission workflow rendered', () => {
-  it('contains the workflow heading', () => {
-    assert.match(md, /### add-permission/);
+describe('A3: add-permission workflow in index', () => {
+  it('appears in the index table', () => {
+    assert.match(md, /\| add-permission \|/);
   });
-  it('contains the intent line', () => {
-    assert.match(md, /Add a new permission rule via conversational interview/);
+  it('has high priority in index', () => {
+    assert.match(md, /\| add-permission \| high \|/);
   });
-  it('contains applies_when with trigger words', () => {
-    assert.match(md, /trigger words/);
-    assert.match(md, /加规则|add permission|\/permission/);
+  it('trigger condition mentions permission rules', () => {
+    assert.match(md, /permission rule/);
   });
-  it('contains numbered steps including inject CLI call', () => {
-    // 步骤里要提到 inject.mjs CLI 调用
-    assert.match(md, /inject\.mjs --type=permission/);
-    // 要有 dry-run 预览步骤
-    assert.match(md, /--dry-run/);
-    // 要有 --apply 步骤
-    assert.match(md, /--apply/);
-  });
-  it('priority tag [high] present on heading', () => {
-    assert.match(md, /### add-permission \[high\]/);
+  it('file path column points to modules/', () => {
+    assert.match(md, /modules\/\?\/add-permission/);
   });
 });
 
-describe('A3: add-workflow workflow rendered', () => {
-  it('contains the workflow heading', () => {
-    assert.match(md, /### add-workflow/);
+describe('A3: add-workflow workflow in index', () => {
+  it('appears in the index table', () => {
+    assert.match(md, /\| add-workflow \|/);
   });
-  it('contains the intent line', () => {
-    assert.match(md, /Add a new workflow via conversational interview/);
+  it('has high priority in index', () => {
+    assert.match(md, /\| add-workflow \| high \|/);
   });
-  it('contains applies_when with trigger words', () => {
-    assert.match(md, /加流程|add workflow|\/workflow/);
-  });
-  it('contains numbered steps including inject CLI call', () => {
-    assert.match(md, /inject\.mjs --type=workflow/);
+  it('trigger condition mentions workflow', () => {
+    assert.match(md, /workflow/);
   });
 });
 
-describe('A3: both workflows in 标准流程 section', () => {
-  it('appear after the 标准流程 header', () => {
-    const sectionStart = md.indexOf('## 标准流程');
-    const addPermPos = md.indexOf('### add-permission');
-    const addWfPos = md.indexOf('### add-workflow');
-    assert.ok(sectionStart > -1, '标准流程 section exists');
-    assert.ok(addPermPos > sectionStart, 'add-permission after section header');
-    assert.ok(addWfPos > sectionStart, 'add-workflow after section header');
+describe('A3: both workflows NOT rendered with detailed steps', () => {
+  it('does NOT contain 标准流程 section header', () => {
+    assert.doesNotMatch(md, /## 标准流程/);
+  });
+  it('does NOT contain numbered steps for add-permission', () => {
+    assert.doesNotMatch(md, /### add-permission \[high\]/);
+    assert.doesNotMatch(md, /inject\.mjs --type=permission/);
+  });
+  it('does NOT contain numbered steps for add-workflow', () => {
+    assert.doesNotMatch(md, /### add-workflow \[high\]/);
+    assert.doesNotMatch(md, /inject\.mjs --type=workflow/);
   });
 });

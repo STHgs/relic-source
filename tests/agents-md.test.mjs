@@ -1,9 +1,13 @@
 // =============================================================================
-// tests/agents-md.test.mjs — T6 AGENTS.md 渲染器测试
+// tests/agents-md.test.mjs — AGENTS.md 渲染器测试（骨架化架构）
 // =============================================================================
-// R1: 输出含 ## 硬约束 表，每条 runtime 权限一行（tool/pattern/action/intent）
-// R2: 输出含 ## 风险分级，low/medium/high 子段（当 risk_levels 非空）
-// R3: 输出含 ## 标准流程，每个 workflow 编号步骤
+// R1: 骨架 — 硬约束表含每条 runtime 权限一行
+// R2: 骨架 — 替代方案段
+// R3: 骨架 — subagent 治理提示段
+// R4: 骨架 — 给助手的话含哨兵指令（第 0 条）
+// R5: 模块索引表 — 列出所有 workflow id + 触发条件 + 文件路径
+// R6: 不渲染 — workflow 详细步骤不在 AGENTS.md 中（留在 module.yaml）
+// R7: 不渲染 — risk_levels 详细列表不在 AGENTS.md 中
 // =============================================================================
 
 import { describe, it } from 'node:test';
@@ -32,43 +36,15 @@ describe('R1: 硬约束 table contains one row per runtime permission', () => {
       assert.match(md, row, `missing row for permission ${p.id}`);
     }
   });
-  it('does NOT include advisory rules in the hard-constraint table', () => {
-    // fixture has no advisory rules, so just ensure header text mentions runtime force
-    assert.match(md, /运行时强制/);
+});
+
+describe('R2: 替代方案 section', () => {
+  it('contains alternatives header', () => {
+    assert.match(md, /### 替代方案/);
   });
 });
 
-describe('R2: 风险分级 with low/medium/high subsections', () => {
-  it('contains the section header', () => {
-    assert.match(md, /## 风险分级/);
-  });
-  it('contains low/medium/high subsections when populated', () => {
-    assert.match(md, /🟢 低风险/);
-    assert.match(md, /🟡 中风险/);
-    assert.match(md, /🔴 高风险/);
-  });
-  it('lists the actual risk items', () => {
-    assert.match(md, /pip install known public libraries/);
-    assert.match(md, /webfetch any URL/);
-    assert.match(md, /mount or umount disks/);
-  });
-});
-
-describe('R3: 标准流程 with numbered steps', () => {
-  it('contains the section header', () => {
-    assert.match(md, /## 标准流程/);
-  });
-  it('contains the pdf-read workflow heading', () => {
-    assert.match(md, /### pdf-read/);
-  });
-  it('contains numbered steps 1. 2. 3.', () => {
-    assert.match(md, /1\. Use look_at for summary first/);
-    assert.match(md, /2\. Use read with offset/);
-    assert.match(md, /3\. Use multimodal-looker for tables/);
-  });
-});
-
-describe('R4: 对 subagent 的治理提示 section', () => {
+describe('R3: 对 subagent 的治理提示 section', () => {
   it('contains the section header', () => {
     assert.match(md, /## 对 subagent 的治理提示/);
   });
@@ -86,7 +62,7 @@ describe('R4: 对 subagent 的治理提示 section', () => {
   });
 });
 
-describe('R5: 注入哨兵（RELIC IS RUNNING）', () => {
+describe('R4: 注入哨兵（RELIC IS RUNNING）', () => {
   it('contains the sentinel rule in 给助手的话 section', () => {
     assert.match(md, /## 给助手的话/);
     assert.match(md, /RELIC IS RUNNING/);
@@ -104,5 +80,35 @@ describe('R5: 注入哨兵（RELIC IS RUNNING）', () => {
   it('requires per-turn fresh timestamp, not a hardcoded one', () => {
     assert.match(md, /每轮现取/);
     assert.match(md, /不得照抄本文件里的示例值/);
+  });
+});
+
+describe('R5: 模块索引表 lists all workflows', () => {
+  it('contains the index section header', () => {
+    assert.match(md, /## 自定义流程索引/);
+  });
+  it('contains a table with workflow id, priority, trigger, path columns', () => {
+    assert.match(md, /\| 流程 \| 优先级 \| 触发条件 \| 文件路径 \|/);
+  });
+  it('instructs agent to Read module.yaml for details', () => {
+    assert.match(md, /Read 工具读取/);
+    assert.match(md, /module\.yaml/);
+  });
+});
+
+describe('R6: workflow detailed steps NOT rendered (stays in module.yaml)', () => {
+  it('does NOT contain numbered workflow steps in AGENTS.md', () => {
+    assert.doesNotMatch(md, /## 标准流程/);
+    assert.doesNotMatch(md, /### pdf-read/);
+    assert.doesNotMatch(md, /1\. Use look_at for summary first/);
+  });
+});
+
+describe('R7: risk_levels detailed list NOT rendered (stays in module.yaml)', () => {
+  it('does NOT contain risk_levels section header', () => {
+    assert.doesNotMatch(md, /## 风险分级/);
+    assert.doesNotMatch(md, /🟢 低风险/);
+    assert.doesNotMatch(md, /🟡 中风险/);
+    assert.doesNotMatch(md, /🔴 高风险/);
   });
 });
