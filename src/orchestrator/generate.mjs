@@ -21,11 +21,12 @@ import { parse } from 'yaml';
 import opencodeAdapter from '../adapters/opencode.mjs';
 import omoAdapter from '../adapters/omo.mjs';
 import claudeAdapter from '../adapters/claude.mjs';
+import dshAdapter from '../adapters/dsh.mjs';
 import { loadPolicies } from '../core/loader.mjs';
 import { createValidator } from '../core/validator.mjs';
 import { loadProfile } from '../core/module-loader.mjs';
 
-const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, claudeAdapter];
+const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, claudeAdapter, dshAdapter];
 
 /**
  * @typedef {Object} GenerateOptions
