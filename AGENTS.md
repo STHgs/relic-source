@@ -25,6 +25,8 @@
 - [x] P4 文档：Q1=丢弃 skills，A3 workflow 渲染替代（无代码，记录在本文件 §3）
 - [x] Wave4 Cutover B→A 执行：relic install 真写现网（4 文件 written，3 backups，0 errors）→ sentinels 全存活（model/fallback_models/11 agents/provider/3 agents/AGENTS.md 软链→普通文件）→ live policies.yaml 归档到 backups/（Q5）→ 209 tests 207 pass 0 fail 2 skip（Tier1 skip 因 policies.yaml 已归档，预期）。**relic 现为唯一治理系统**。
 - [x] 哨兵提示词改造（2026-08-30）：注入哨兵改为 diff 围栏块（UI 渲染红色）+ MMDD-HHMMSS 每轮现取时间戳；cleanup-legacy-permissions.mjs 改为只删非主 agent 的 permission 字段。216→218 tests，全绿
+- [x] 热插拔部署 + 分支生命周期：deploy/export CLI + git-ops + deploy-lifecycle + export-pack 模块，241 tests 239 pass 0 fail 2 skip（3 not ok 为预存 cli.test.mjs hook 问题，非本轮引入）。方案见 output/v4/deploy-export-plan.md。
+- [x] dsh 适配器（路线 A）：新增 src/adapters/dsh.mjs（detect ~/.dsh, generate AGENTS.md only, install ~/.dsh/AGENTS.md）；orchestrator DEFAULT_ADAPTERS 加 dsh；adapters.test.mjs 加 A6 测试组（FileMap keys/round-trip/detect/install dryRun）；orchestrator.test.mjs + cli.test.mjs 从 3 平台→4 平台断言适配。248 tests 246 pass 0 fail 2 skip。决策：dsh 无 pattern 级 permission 模型（只有 session 级 ask/never + sandbox mode），放弃硬约束全部靠 agent 自治（advisory 渲染进 AGENTS.md）。
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -53,6 +55,8 @@
 - 结论（GAP1 fix 架构，2026-08-27）：generate 保持扁平产出（{agent:{permission}}，匹配 live generated/ 形状 + Tier1 等价 + Option B 兼容），ALL merge 逻辑放 install。加 stripJsonc/parseJsonc/readJsonc 共享 helper 到 base.mjs（从 live install.sh 提取去重）。omo install 深合并 permission 进 [opencode].agents.<name>.permission（忠实端口 install.sh:87-94）。理由：改 generate 形状会破坏 Tier1 diff + live install.sh 消费。
 - 结论（模块忠实化，2026-08-27）：5 modules 补全缺失规则至与 live policies.yaml 内容等价（mount-ask/edit-windows-ask/agent-self-protection/27 windows-write patterns/external-dir patterns/alternatives/pdf-write+project-scaffold workflow/sudo-ask 加 subagent）。Tier-1b deep-equal 验证 PASS。理由：Q5=归档 live policies.yaml 前，relic manifest 必须是忠实继任者。
 - 结论（哨兵改造，2026-08-30）：注入哨兵从纯文本改为 diff 围栏块输出（markdown 无颜色语法，diff 删除行是 UI 中唯一可靠的红色渲染方案）+ `MMDD-HHMMSS` 每轮现取时间戳防复读旧文本（用户拍板格式）。理由：红色靠 diff 代码块实现，秒级时间戳证明实时性。
+- 结论（热插拔部署，2026-08-28）：不拘泥单一源，deploy/export 两命令实现热插拔。每次 deploy 创建 git 分支追踪部署生命周期，export 封存分支并打 tag。理由：relic 三段式架构（detect→generate→install）天然支持从任意副本部署，单一源是前身软链习惯非架构约束；跨平台移植用命令代替链接更可控。
+- 结论（dsh 适配路线 A，用户拍板 2026-09-05）：dsh adapter 只产 AGENTS.md，放弃 pattern 级硬约束，全部靠 agent 自治。理由：dsh 的 permission 模型只有 session 级 ask/never + sandbox mode（workspace-write/read-only/danger-full-access），不支持 pattern 级拦截（如 `sudo *`→ask）；relic 的 runtime permission 无法直接映射到 dsh 的 knob 模型。路线 A 与 claude adapter 同构（只产 AGENTS.md），detect=~/.dsh 目录存在，install 写 ~/.dsh/AGENTS.md。路线 B（写 dsh Cordis 插件注册 approval/request answerer 做 pattern 级 ask/deny）复杂度过高且 dsh v0.1 API 不稳，延后。
 
 ## 4. 已知约束
 
@@ -72,15 +76,15 @@
 - package.json / package-lock.json — ESM 工具链（ajv@8.20.0 + yaml@2.9.0, node≥20）
 - schema.json — v2 唯一权威契约（enforcement 无 hook，personas/modules 槽位已激活为 registry，profiles 增量加）
 - src/ — 源码：
-  - core/ — loader / validator(ajv,+createModuleValidator) / permission-map / conflict(3 层,+detectCrossModuleConflicts) / inject（+CLI 入口） / module-loader（loadProfile+mergeFragments，方向 3 核心）
+  - core/ — loader / validator(ajv,+createModuleValidator) / permission-map / conflict(3 层,+detectCrossModuleConflicts) / inject（+CLI 入口） / module-loader（loadProfile+mergeFragments，方向 3 核心） / **git-ops**（git 操作封装，deploy/export 用） / **deploy-lifecycle**（分支命名+序号+skill 清理） / **export-pack**（文件收集+HANDOFF.md+tar.gz）
   - render/ — agents-md.mjs（AGENTS.md 渲染器，+meta.profile 头）
-  - adapters/ — base（+stripJsonc/parseJsonc/readJsonc JSONC helpers）/ opencode（+install 浅合并 GAP2）/ omo（+install 深合并 GAP1）/ claude（3 平台适配器）
+  - adapters/ — base（+stripJsonc/parseJsonc/readJsonc JSONC helpers）/ opencode（+install 浅合并 GAP2）/ omo（+install 深合并 GAP1）/ claude（3 平台适配器）/ **dsh**（DeepSeek Harness 适配器，路线 A 只产 AGENTS.md）
   - orchestrator/ — generate.mjs（流水线 + CLI 入口，+--profile）
   - index.mjs — 公共 API 门面（pipeline 一条龙，+profile 路由）
-- scripts/ — rollback.mjs（P3 GAP4，restoreFromBackup+rollbackPaths+CLI）/ tier1-equivalence.mjs（P5，generate-only 等价 harness）/ tier2-sentinel.mjs（P6，install-semantics sentinel harness）
-- tests/ — 20 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 218 tests（216 pass 0 fail 2 skip，skip 预期：Tier1 因 policies.yaml 归档）
-- scripts/ — rollback.mjs（回滚工具）/ tier1-equivalence.mjs（P5 等价 harness，cutover 后因 policies.yaml 归档 skip）/ tier2-sentinel.mjs（P6 sentinel harness）
-- .gitignore / .gitattributes — git 基础配置
+- scripts/ — rollback.mjs（P3 GAP4）/ tier1-equivalence.mjs（P5）/ tier2-sentinel.mjs（P6）/ **deploy.mjs**（热插拔部署 CLI）/ **export.mjs**（导出封存 CLI）
+- tests/ — 23 个 .test.mjs + fixtures/（含 manifest.yaml + modules/ 模块样本 + bad-dupe-id）；`npm test` 跑 248 tests（246 pass 0 fail 2 skip）；adapters.test.mjs 含 A6 dsh 测试组
+- .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
+- output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - （前身，已归档）~/.config/opencode/agent-governance/ — policies.yaml 已 mv 到 backups/policies.yaml.archived-20260827-cutover；generated/ + install.sh + generate.mjs + lib/ 仍在但 relic 不再用；只读参考可删
 
 ## 6. 交接说明
@@ -94,12 +98,27 @@
   - 软链 cutover blocker 修复：opencode.mjs AGENTS.md 写前 unlink symlink（+1 test）
   - **Wave4 Cutover B→A 执行**：relic install 真写现网（4 文件 written，3 backups，0 errors）→ sentinels 全存活（model=glm-5.2/fallback=[minimax-m3,kimi-k3]/11 agents 全在/provider 2 providers 全在/AGENTS.md 软链→普通文件 10512 chars）→ live policies.yaml 归档到 backups/policies.yaml.archived-20260827-cutover（Q5）。**relic 现为唯一治理系统**。回滚预案：scripts/rollback.mjs + backups/*.bak.*
 - 本轮（2026-08-30，哨兵改造）：注入哨兵改为 diff 围栏块（UI 渲染红色）+ MMDD-HHMMSS 每轮现取时间戳（agents-md.mjs + R5 测试，218 tests 全绿）；cleanup-legacy-permissions.mjs 从"整条删非主 agent"改为"只删 permission 字段"（保 OpenCode V2 default_agent fallback 链），上轮遗留随本轮提交；generate 真写现网已生效
+- 本轮（热插拔部署，241 tests 全绿）：
+  - 方案产出：output/v4/deploy-export-plan.md（热插拔部署+分支生命周期+导出封存）
+  - 新增 3 核心模块：git-ops.mjs（git 操作封装）/ deploy-lifecycle.mjs（分支命名+序号+skill 清理）/ export-pack.mjs（文件收集+HANDOFF.md+tar.gz）
+  - 新增 2 CLI 入口：scripts/deploy.mjs（remote 检测→分支创建→generate→清理→commit→push）/ scripts/export.mjs（确认 deploy 分支→打包+HANDOFF→tar.gz→tag+push）
+  - 新增 3 测试文件：git-ops.test.mjs(15) + deploy-lifecycle.test.mjs(12) + export-pack.test.mjs(4) = 31 新测试全绿
+  - package.json 加 deploy/export 脚本；.gitignore 加 *.tar.gz
+- 本轮（dsh 适配器路线 A，248 tests 全绿）：
+  - 新增 src/adapters/dsh.mjs：detect ~/.dsh 目录，generate 只产 AGENTS.md（与 claude adapter 同构），install 写 ~/.dsh/AGENTS.md
+  - orchestrator DEFAULT_ADAPTERS 从 3 adapter→4 adapter（加 dshAdapter import + 数组追加）
+  - tests/adapters.test.mjs 加 A6 测试组（A6 FileMap keys + AGENTS.md 内容、A6b round-trip、A6c detect、A6d install dryRun）共 9 断言
+  - tests/orchestrator.test.mjs + tests/cli.test.mjs 从 3 平台→4 平台断言适配（makeEnv 加 dsh 字段、O1/O2/G1 的 skipped.length 3→4、fileMaps 断言加 dsh）
+  - 决策记录：dsh 无 pattern 级 permission 模型（只有 session 级 ask/never + sandbox mode），放弃硬约束全部靠 agent 自治
 
 **下轮该做**：
 - ✅ 迁移完成。relic 是现网唯一治理源（manifest+modules → generate → install）。
 - 日常改规则：编辑 relic/modules/<id>/module.yaml → `npm run generate`（真写，A2 决策）→ 生效。
+- **首次部署**：`npm run deploy`（会创建 GitHub 私有仓库 + deploy 分支）
+- **导出封存**：`npm run export`（在 deploy 分支上跑，打 tar.gz + tag）
 - 回滚（如需）：`node scripts/rollback.mjs`（恢复 3 路径最新 .bak）+ backups/policies.yaml.archived-*。
 - 其他候选仍开放：人设功能 / Codex-Cursor 适配器 / 方向 2（workflow steps 折叠省 token）。
+- ✅ dsh 适配器已完成（路线 A，只产 AGENTS.md，放弃 pattern 硬约束靠 agent 自治）。
 - 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则）。
 
 **待澄清**（迁移全落地）：
@@ -107,6 +126,7 @@
 - ✅ GAP1+GAP2+GAP4 全修复，Tier1+Tier2+Tier1b PASS，模块忠实化 PASS
 - ✅ Wave4 Cutover 执行成功，relic 为唯一治理系统
 - ✅ Q1=丢弃 skills（A3 替代），P4 已记录
-- 第二个目标平台是哪个（Codex/Cursor）？
+- ✅ dsh 适配器已完成（路线 A，2026-09-05）
+- 第二个目标平台是哪个（Codex/Cursor）？（dsh 是第三个已完成的）
 - persona 范畴边界（语气风格？行为偏好？记忆？）——schema 槽位已留，功能待做。
 - ✅ 方案详情：地基 output/v1/，方向 3 output/v2/，迁移策略 output/v3/migration-strategy-plan.md。

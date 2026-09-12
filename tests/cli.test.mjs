@@ -54,15 +54,16 @@ describe('G1: generate --dry-run', () => {
   it('stdout is valid JSON', () => assert.ok(out, `stdout was: ${r.stdout.slice(0, 200)}`));
   it('ok:true', () => assert.equal(out.ok, true));
   it('dryRun:true', () => assert.equal(out.dryRun, true));
-  it('has fileMaps with opencode/omo/claude', () => {
+  it('has fileMaps with opencode/omo/claude/dsh', () => {
     assert.ok(out.fileMaps, 'fileMaps present');
     assert.ok(out.fileMaps.opencode, 'opencode present');
     assert.ok(out.fileMaps.omo, 'omo present');
     assert.ok(out.fileMaps.claude, 'claude present');
+    assert.ok(out.fileMaps.dsh, 'dsh present');
   });
-  it('skipped lists all 3 as dryRun', () => {
+  it('skipped lists all 4 as dryRun', () => {
     const dryRunSkips = out.skipped.filter((s) => s.includes('dryRun'));
-    assert.equal(dryRunSkips.length, 3);
+    assert.equal(dryRunSkips.length, 4);
   });
 });
 

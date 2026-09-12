@@ -7,7 +7,9 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "generate": "node src/orchestrator/generate.mjs"
+    "generate": "node src/orchestrator/generate.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "export": "node scripts/export.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

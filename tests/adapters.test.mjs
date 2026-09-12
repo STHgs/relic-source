@@ -19,6 +19,7 @@ import { createValidator } from '../src/core/validator.mjs';
 import opencodeAdapter from '../src/adapters/opencode.mjs';
 import omoAdapter from '../src/adapters/omo.mjs';
 import claudeAdapter from '../src/adapters/claude.mjs';
+import dshAdapter from '../src/adapters/dsh.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = resolve(__dirname, 'fixtures');
@@ -147,6 +148,53 @@ describe('adapter.install() dryRun', () => {
       { 'AGENTS.md': '# x' },
       { home, dryRun: true }
     );
+    assert.equal(r.written.length, 0);
+    assert.ok(r.skipped.length > 0);
+  });
+});
+
+describe('A6: dsh FileMap keys', () => {
+  const fm = dshAdapter.generate(policies, fakeEnv(new Set()));
+  it('keys = [AGENTS.md] only', () => {
+    assert.deepEqual(Object.keys(fm), ['AGENTS.md']);
+  });
+  it('AGENTS.md content has 硬约束 section', () => {
+    assert.match(fm['AGENTS.md'], /## 硬约束/);
+  });
+});
+
+describe('A6b: dsh round-trip stability', () => {
+  const fm1 = dshAdapter.generate(policies, fakeEnv(new Set()));
+  const fm2 = dshAdapter.generate(parse(stringify(policies)), fakeEnv(new Set()));
+  it('dsh FileMap byte-identical after stringify→parse round-trip', () => {
+    assert.equal(fm1['AGENTS.md'], fm2['AGENTS.md']);
+  });
+});
+
+describe('A6c: dsh adapter.detect()', () => {
+  it('dsh detects when ~/.dsh dir present', () => {
+    const home = '/fake';
+    const env = fakeEnv(new Set([join(home, '.dsh')]), home);
+    assert.equal(dshAdapter.detect(env), true);
+  });
+  it('dsh does not detect when absent', () => {
+    assert.equal(dshAdapter.detect(fakeEnv(new Set())), false);
+  });
+});
+
+describe('A6d: dsh adapter.install() dryRun', () => {
+  const home = '/nonexistent-dry-run-path';
+  it('dsh dryRun returns skipped, no written, no errors', () => {
+    const r = dshAdapter.install(
+      { 'AGENTS.md': '# x' },
+      { home, dryRun: true }
+    );
+    assert.equal(r.written.length, 0);
+    assert.equal(r.errors.length, 0);
+    assert.ok(r.skipped.length > 0);
+  });
+  it('dsh dryRun skips when no AGENTS.md in map', () => {
+    const r = dshAdapter.install({}, { home, dryRun: true });
     assert.equal(r.written.length, 0);
     assert.ok(r.skipped.length > 0);
   });
