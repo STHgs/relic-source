@@ -159,6 +159,9 @@ if (isMain) {
       policies = v.doc;
     }
 
+    // roadmap 索引需要运行时 clone 的绝对路径（本机 generate → 本机 install，路径即有效）
+    if (policies.meta) policies.meta.runtimeRoot = process.cwd();
+
     const r = await generate(policies, { dryRun });
     console.log(JSON.stringify({
       ok: r.ok,

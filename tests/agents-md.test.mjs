@@ -7,7 +7,9 @@
 // R4: 骨架 — 给助手的话含哨兵指令（第 0 条）
 // R5: 模块索引表 — 列出所有 workflow id + 触发条件 + 文件路径
 // R6: 不渲染 — workflow 详细步骤不在 AGENTS.md 中（留在 module.yaml）
-// R7: 不渲染 — risk_levels 详细列表不在 AGENTS.md 中
+// R7: 骨架 — 风险分级（跨模块合并视图）常驻渲染
+// R8: 索引绝对路径 — meta.runtimeRoot + workflowSources → module.yaml / policies.yaml
+// R9: 规则 5 — 流程先读后行
 // =============================================================================
 
 import { describe, it } from 'node:test';
@@ -104,11 +106,53 @@ describe('R6: workflow detailed steps NOT rendered (stays in module.yaml)', () =
   });
 });
 
-describe('R7: risk_levels detailed list NOT rendered (stays in module.yaml)', () => {
-  it('does NOT contain risk_levels section header', () => {
-    assert.doesNotMatch(md, /## 风险分级/);
-    assert.doesNotMatch(md, /🟢 低风险/);
-    assert.doesNotMatch(md, /🟡 中风险/);
-    assert.doesNotMatch(md, /🔴 高风险/);
+describe('R7: risk_levels rendered in skeleton (cross-module merged view)', () => {
+  it('contains the risk section header and philosophy line', () => {
+    assert.match(md, /## 风险分级（避免消极回避）/);
+    assert.match(md, /不要因为害怕审批而回避正常工作/);
+  });
+  it('renders one labelled level per non-empty risk level with all items', () => {
+    const labels = { low: /🟢 低风险/, medium: /🟡 中风险/, high: /🔴 高风险/ };
+    for (const [level, re] of Object.entries(labels)) {
+      const items = policies.risk_levels[level] || [];
+      if (items.length > 0) {
+        assert.match(md, re, `missing label for non-empty level ${level}`);
+        for (const item of items) assert.ok(md.includes(`- ${item}`), `missing risk item: ${item}`);
+      }
+    }
+  });
+});
+
+describe('R8: index uses absolute runtime paths (meta.runtimeRoot + workflowSources)', () => {
+  const inlineId = policies.workflows[0].id;
+  const synthId = 'plan-then-build';
+  const p2 = {
+    ...policies,
+    workflows: [
+      policies.workflows[0],
+      { id: synthId, intent: 'synthetic module workflow for path assertions', steps: ['x'] },
+    ],
+    meta: {
+      ...policies.meta,
+      runtimeRoot: '/repo',
+      workflowSources: { [inlineId]: 'manifest', [synthId]: 'build-hygiene' },
+    },
+  };
+  const md2 = renderAgentsMd(p2);
+  it('inline entry workflow points at policies.yaml', () => {
+    assert.match(md2, new RegExp(`\\| ${inlineId} \\|.*\\| /repo/policies\\.yaml \\|`));
+  });
+  it('module workflow points at absolute module.yaml', () => {
+    assert.match(md2, /\/repo\/modules\/build-hygiene\/module\.yaml/);
+  });
+  it('without runtimeRoot falls back to Glob hint', () => {
+    assert.match(md, /Glob: modules\/\*/);
+  });
+});
+
+describe('R9: rule 5 read-before-execute', () => {
+  it('contains rule 5 with mandatory Read-before-run semantics', () => {
+    assert.match(md, /5\. \*\*流程先读后行\*\*/);
+    assert.match(md, /正文未读不得执行/);
   });
 });

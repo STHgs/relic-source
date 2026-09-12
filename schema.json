@@ -20,6 +20,15 @@
             "name": { "type": "string", "minLength": 1 }
           },
           "additionalProperties": false
+        },
+        "runtimeRoot": {
+          "type": "string",
+          "description": "Absolute path of the runtime clone (set by generate CLI); used to build on-demand pointers in AGENTS.md."
+        },
+        "workflowSources": {
+          "type": "object",
+          "description": "workflow id -> source module id ('manifest' for inline entry workflows). Set by mergeFragments; consumed by the renderer for on-demand pointers.",
+          "additionalProperties": { "type": "string" }
         }
       },
       "additionalProperties": false

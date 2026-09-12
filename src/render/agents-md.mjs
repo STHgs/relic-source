@@ -4,7 +4,7 @@
 // 架构：骨架 + 模块索引表
 //   - 骨架（固定，不随自定义区变动）：硬约束表、替代方案、subagent 治理提示、给助手的话
 //   - 模块索引表（极小）：workflow id + 触发条件，agent 按需 Read module.yaml
-// workflows/risk_levels 详细步骤留在 modules/ 下，不渲染进 AGENTS.md，避免上下文浪费
+// workflow 详细步骤留在 modules/ 下不渲染进 AGENTS.md；risk_levels 是跨模块合并视图（无单一文件可指），常驻骨架
 // =============================================================================
 
 /**
@@ -22,6 +22,11 @@ function formatPatternsCell(p) {
 }
 
 const ACTION_ZH = { ask: '弹窗确认', deny: '直接拒绝', allow: '放行' };
+const LEVEL_LABEL = {
+  low: '🟢 低风险（直接执行，不用请示）',
+  medium: '🟡 中风险（系统会弹窗，你照常发起即可）',
+  high: '🔴 高风险（仅主助手，系统会弹窗确认）',
+};
 
 /**
  * 渲染 policies 为 AGENTS.md 文本。
@@ -82,22 +87,41 @@ export function renderAgentsMd(policies) {
     }
   }
 
-  // 模块索引表（替代原风险分级+标准流程全量渲染）
-  // workflows 和 risk_levels 的详细内容留在 modules/ 下的 yaml 文件中，
-  // agent 按需用 Read 工具读取对应 module.yaml 获取步骤和风险分级。
-  // AGENTS.md 只保留索引，保持精简，不随自定义内容增长。
+  // 风险分级（跨模块合并视图——没有单一 module.yaml 可指，且约束每个动作的即时判断，常驻骨架）
+  if (policies.risk_levels) {
+    lines.push('## 风险分级（避免消极回避）');
+    lines.push('');
+    lines.push('**不要因为害怕审批而回避正常工作。** 按风险等级判断：');
+    lines.push('');
+    for (const level of ['low', 'medium', 'high']) {
+      const items = policies.risk_levels[level];
+      if (!items || items.length === 0) continue;
+      lines.push(`### ${LEVEL_LABEL[level]}`);
+      for (const item of items) lines.push(`- ${item}`);
+      lines.push('');
+    }
+  }
+
+  // 模块索引表（workflow 详细步骤留在 modules/ 下，按需 Read——方向 2）
+  // 路径 = meta.runtimeRoot（本机 clone 根）+ workflowSources 溯源；缺省时退化为 Glob 提示。
   if (policies.workflows && policies.workflows.length > 0) {
     lines.push('## 自定义流程索引');
     lines.push('');
-    lines.push('> 以下流程的详细步骤和风险分级存储在 `modules/` 下的 yaml 文件中。');
-    lines.push('> 遇到相关任务时，用 Read 工具读取 `modules/<对应模块>/module.yaml` 获取完整步骤。');
+    lines.push('> 以下流程的详细步骤存储在每行「文件路径」指向的 yaml 文件中（绝对路径）。');
+    lines.push('> 命中触发条件时，先用 Read 工具读取对应 module.yaml（入口流程读 policies.yaml）获取完整步骤，再执行。');
     lines.push('');
     lines.push('| 流程 | 优先级 | 触发条件 | 文件路径 |');
     lines.push('|---|---|---|---|');
+    const root = policies.meta?.runtimeRoot;
+    const sources = policies.meta?.workflowSources || {};
     for (const w of policies.workflows) {
       const priorityTag = (w.priority && w.priority !== 'normal') ? w.priority : 'normal';
       const trigger = w.applies_when ? w.applies_when.substring(0, 50) : '—';
-      const modulePath = `modules/?/${w.id} (用 Glob: modules/*/${w.id} 定位)`;
+      const src = sources[w.id];
+      let modulePath;
+      if (root && src === 'manifest') modulePath = `${root}/policies.yaml`;
+      else if (root && src) modulePath = `${root}/modules/${src}/module.yaml`;
+      else modulePath = `modules/?/${w.id}（无 runtimeRoot，用 Glob: modules/*/${w.id} 定位）`;
       lines.push(`| ${w.id} | ${priorityTag} | ${trigger} | ${modulePath} |`);
     }
     lines.push('');
@@ -136,6 +160,7 @@ export function renderAgentsMd(policies) {
   lines.push('2. **中风险操作不用回避**——系统弹窗是给用户看的，不是给你看的。你正常发起 `webfetch`、访问工作区外路径，让系统去弹窗。');
   lines.push('3. **低风险直接做**——装公开库、改项目文件、跑测试，不用请示。');
   lines.push('4. **改规则不改这里**——这里只读。要改规则编辑 `modules/<id>/module.yaml` 然后跑 `npm run generate`。');
+  lines.push('5. **流程先读后行**——命中「自定义流程索引」任一行的触发条件时，必须先用 Read 工具读取该行「文件路径」指向的 yaml 正文，再按步骤执行；正文未读不得执行。');
 
   return lines.join('\n');
 }

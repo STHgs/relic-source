@@ -50,10 +50,16 @@ export function mergeFragments(manifest, fragments, profile) {
     return result;
   };
 
+  // workflow -> source module 溯源（roadmap 索引用；inline 入口流程记为 'manifest'）
+  const workflowSources = {};
+  for (const w of inlineWfs) workflowSources[w.id] = 'manifest';
+  for (const f of fragments) for (const w of (f.doc.workflows || [])) workflowSources[w.id] = f.id;
+
   const merged = {
     meta: {
       ...manifest.meta,
       profile: { id: profile.id, name: profile.name },
+      workflowSources,
     },
     permissions: [...inlinePerms, ...fragPerms],
     workflows: [...inlineWfs, ...fragWfs],
