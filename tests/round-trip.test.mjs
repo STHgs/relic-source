@@ -61,9 +61,7 @@ describe('RT1: split→merge→render == original render', () => {
   });
 
   it('rendered output semantically equivalent (same sections present)', () => {
-    // 不强求 byte-identical（meta.profile 会让 header 多一行），
-    // 但核心段落必须都在
-    for (const section of ['## 硬约束', '## 风险分级', '## 标准流程', '## 给助手的话']) {
+    for (const section of ['## 硬约束', '## 自定义流程索引', '## 给助手的话']) {
       assert.ok(mergedMd.includes(section), `merged missing section: ${section}`);
       assert.ok(originalMd.includes(section), `original missing section: ${section}`);
     }
