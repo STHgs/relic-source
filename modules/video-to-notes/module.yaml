@@ -27,7 +27,6 @@ workflows:
       - "If upgrading transcription model: copy output/vN to output/vN.1, re-run with larger model, regenerate PDF with updated source attribution"
 risk_levels:
   low:
-    - "pip install --user --break-system-packages (public libraries: imageio-ffmpeg, faster-whisper, reportlab, pillow, pymupdf)"
     - "mkdir output directories"
     - "ffmpeg frame extraction and audio extraction (read-only on source video)"
   medium:

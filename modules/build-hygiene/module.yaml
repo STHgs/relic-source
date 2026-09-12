@@ -42,7 +42,7 @@ risk_levels:
     - git status/diff/log (read-only)
     - Create temp files in workspace
     - Download Typst static binary to ~/.local/bin/ (single binary, no sudo)
-    - "pip install --user --break-system-packages (public libraries: imageio-ffmpeg, faster-whisper, yt-dlp, pymupdf, reportlab)"
+    - "pip install --user --break-system-packages (public libraries: imageio-ffmpeg, faster-whisper, yt-dlp, pymupdf, reportlab, pillow)"
   medium:
     - HuggingFace model download (~769MB for medium); use hf-mirror.com if direct download times out
   high: []
