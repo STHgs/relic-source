@@ -29,4 +29,4 @@
 - 280 tests / 278 pass / 0 fail / 2 skip
 - 红测1：篡改渲染器哨兵行 → sync 在部署前拒止（gate A FAILED）
 - 红测2：纯用户区 risk item 变更 → 放行且骨架 hash 不变
-- 首次 CI 运行见 GitHub Actions
+- 首次 CI 运行：success（run 34825193800，2026-09-14）；调通过程修复测试环境依赖（fake HOME + 动态模块副本）

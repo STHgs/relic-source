@@ -28,7 +28,7 @@
 - [x] 热插拔部署 + 分支生命周期：deploy/export CLI + git-ops + deploy-lifecycle + export-pack 模块，241 tests 239 pass 0 fail 2 skip（3 not ok 为预存 cli.test.mjs hook 问题，非本轮引入）。方案见 output/v4/deploy-export-plan.md。
 - [x] dsh 适配器（路线 A）：新增 src/adapters/dsh.mjs（detect ~/.dsh, generate AGENTS.md only, install ~/.dsh/AGENTS.md）；orchestrator DEFAULT_ADAPTERS 加 dsh；adapters.test.mjs 加 A6 测试组（FileMap keys/round-trip/detect/install dryRun）；orchestrator.test.mjs + cli.test.mjs 从 3 平台→4 平台断言适配。248 tests 246 pass 0 fail 2 skip。决策：dsh 无 pattern 级 permission 模型（只有 session 级 ask/never + sandbox mode），放弃硬约束全部靠 agent 自治（advisory 渲染进 AGENTS.md）。
 - [x] 单源同步 + roadmap 热加载（2026-09-12）：双库分叉收口（E 盘 wip + 部署库 dsh 适配器两侧分支化合并入 main，push GitHub 唯一权威源）；AGENTS.md 骨架化 15017B→8688B（workflow 正文按需 Read，绝对路径索引，规则 5 流程先读后行）；同步原语 npm run sync（Tier3 语义测试：脏拒/分叉拒/哨兵检）；271 tests 269 pass 0 fail 2 skip。方案 output/v5/sync-architecture-plan.md。
-- [x] 骨架门禁 Tier4（2026-09-14）：静态骨架等价检查——golden 基准（探针策略渲染）+ 断言 A（等价，拦 renderer 漂移无 bump）+ 断言 B（不变，拦用户区触碰骨架）；sync generate 前真拦截 + GitHub CI 回归信号；280 tests 278 pass。方案 output/v6/skeleton-gate-plan.md。
+- [x] 骨架门禁 Tier4（2026-09-14）：静态骨架等价检查——golden 基准（探针策略渲染）+ 断言 A（等价，拦 renderer 漂移无 bump）+ 断言 B（不变，拦用户区触碰骨架）；sync generate 前真拦截 + GitHub CI 首跑全绿（run 34825193800）；285 tests 283 pass。方案 output/v6/skeleton-gate-plan.md。CI 调通顺带修复测试环境依赖（cli/cli-profile 自带 fake HOME、I3 模块副本动态化）——落实测试权威性=不依赖机器布局；gh token 补 workflow scope 后 workflow 方可推送。
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -90,7 +90,7 @@
   - orchestrator/ — generate.mjs（流水线 + CLI 入口，+--profile）
   - index.mjs — 公共 API 门面（pipeline 一条龙，+profile 路由）
 - scripts/ — rollback.mjs（P3 GAP4）/ tier1-equivalence.mjs（P5）/ tier2-sentinel.mjs（P6）/ **deploy.mjs**（热插拔部署 CLI）/ **export.mjs**（导出封存 CLI）/ **sync.mjs**（同步原语 CLI，--init-deploy 装护栏）
-- tests/ — 25 个 .test.mjs + fixtures/；`npm test` 跑 280 tests（278 pass 0 fail 2 skip）；sync.test.mjs=Tier3；skeleton.test.mjs=Tier4 三绿三红
+- tests/ — 25 个 .test.mjs + fixtures/；`npm test` 跑 285 tests（283 pass 0 fail 2 skip）；sync.test.mjs=Tier3；skeleton.test.mjs=Tier4 三绿三红；CLI 测试自带 fake HOME（环境无关）
 - .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
 - output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - src/core/sync-core.mjs — 同步原语核心（runSync：脏拒/ff-only/哨兵检/状态；deployGuardHook）
