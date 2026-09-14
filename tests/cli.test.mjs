@@ -33,11 +33,19 @@ afterEach(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
+// 环境无关性（测试权威性原则）：自带 fake HOME，四个平台标记目录齐全 → adapters 全部
+// detected。不依赖运行机器的真实布局（CI runner 上没有任何平台目录）。
+const FAKE_HOME = join(tmpdir(), 'relic-cli-fake-home');
+mkdirSync(join(FAKE_HOME, '.config', 'opencode'), { recursive: true });
+mkdirSync(join(FAKE_HOME, '.omo'), { recursive: true });
+mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
+mkdirSync(join(FAKE_HOME, '.dsh'), { recursive: true });
+
 const runCli = (cli, args, opts = {}) => {
   const r = spawnSync(process.execPath, [cli, ...args], {
     encoding: 'utf-8',
     cwd: opts.cwd || REPO,
-    env: { ...process.env, ...(opts.env || {}) },
+    env: { ...process.env, HOME: FAKE_HOME, ...(opts.env || {}) },
   });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 };
@@ -152,7 +160,7 @@ describe('I3: inject --apply writes + runs generate (isolated policies)', () => 
   };
   // HOME 指向不存在的临时目录，generate 不会真写任何平台配置（都 not detected）
   const r = runCli(INJECT_CLI, ['--type=permission', '--apply', '--policies', isoPolicies, JSON.stringify(rule)], {
-    env: { HOME: join(scratch, 'fake-home') },
+    env: { HOME: join(isoRoot, 'fake-home') },  // 不存在 → 全部 not detected，绝不真写
   });
   const out = parseJson(r.stdout);
 
