@@ -13,7 +13,7 @@
 
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, copyFileSync, readFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync, copyFileSync, readFileSync, mkdirSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { spawnSync } from 'child_process';
@@ -37,7 +37,9 @@ afterEach(() => {
 // detected。不依赖运行机器的真实布局（CI runner 上没有任何平台目录）。
 const FAKE_HOME = join(tmpdir(), 'relic-cli-fake-home');
 mkdirSync(join(FAKE_HOME, '.config', 'opencode'), { recursive: true });
+writeFileSync(join(FAKE_HOME, '.config', 'opencode', 'opencode.jsonc'), '{}');  // detect 的是文件
 mkdirSync(join(FAKE_HOME, '.omo'), { recursive: true });
+writeFileSync(join(FAKE_HOME, '.omo', 'omo.jsonc'), '{}');  // detect 的是文件
 mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
 mkdirSync(join(FAKE_HOME, '.dsh'), { recursive: true });
 
@@ -143,10 +145,11 @@ describe('I3: inject --apply writes + runs generate (isolated policies)', () => 
   const isoPolicies = join(isoRoot, 'policies.yaml');
   const isoModules = join(isoRoot, 'modules');
   copyFileSync(POLICIES, isoPolicies);
-  // 复制全部 5 个模块（default profile = full 需要 all modules）
-  for (const id of ['sudo-safety', 'disk-protect', 'web-safety', 'build-hygiene', 'pdf-handling']) {
-    mkdirSync(join(isoModules, id), { recursive: true });
-    copyFileSync(join(MODULES_DIR, id, 'module.yaml'), join(isoModules, id, 'module.yaml'));
+  // 动态复制全部模块（default profile = full 需要注册表内所有模块；硬编码清单会漏新模块）
+  for (const ent of readdirSync(MODULES_DIR, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    mkdirSync(join(isoModules, ent.name), { recursive: true });
+    copyFileSync(join(MODULES_DIR, ent.name, 'module.yaml'), join(isoModules, ent.name, 'module.yaml'));
   }
 
   const rule = {
