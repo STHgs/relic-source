@@ -31,11 +31,20 @@ afterEach(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
+// 环境无关性：自带 fake HOME（含各平台 detect 标记），不依赖运行机器布局（同 cli.test）
+const FAKE_HOME = join(tmpdir(), 'relic-cli-profile-fake-home');
+mkdirSync(join(FAKE_HOME, '.config', 'opencode'), { recursive: true });
+writeFileSync(join(FAKE_HOME, '.config', 'opencode', 'opencode.jsonc'), '{}');
+mkdirSync(join(FAKE_HOME, '.omo'), { recursive: true });
+writeFileSync(join(FAKE_HOME, '.omo', 'omo.jsonc'), '{}');
+mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
+mkdirSync(join(FAKE_HOME, '.dsh'), { recursive: true });
+
 const runCli = (cli, args, opts = {}) => {
   const r = spawnSync(process.execPath, [cli, ...args], {
     encoding: 'utf-8',
     cwd: opts.cwd || REPO,
-    env: { ...process.env, ...(opts.env || {}) },
+    env: { ...process.env, HOME: FAKE_HOME, ...(opts.env || {}) },
   });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 };
