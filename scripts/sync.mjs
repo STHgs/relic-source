@@ -17,7 +17,10 @@ import { runSync, deployGuardHook } from '../src/core/sync-core.mjs';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const exec = (cmd, cwd) => {
-  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8' });
+  // 无头加固：清掉交互式 askpass（如 VS Code socket），禁止终端挂起等提示——
+  // 凭据一律走 credential.helper（gh auth setup-git 配置），失败要快速失败。
+  const env = { ...process.env, GIT_ASKPASS: '', SSH_ASKPASS: '', GIT_TERMINAL_PROMPT: '0' };
+  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env });
   return { ok: r.status === 0, stdout: r.stdout || '', stderr: r.stderr || '' };
 };
 
