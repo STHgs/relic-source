@@ -28,6 +28,7 @@
 - [x] 热插拔部署 + 分支生命周期：deploy/export CLI + git-ops + deploy-lifecycle + export-pack 模块，241 tests 239 pass 0 fail 2 skip（3 not ok 为预存 cli.test.mjs hook 问题，非本轮引入）。方案见 output/v4/deploy-export-plan.md。
 - [x] dsh 适配器（路线 A）：新增 src/adapters/dsh.mjs（detect ~/.dsh, generate AGENTS.md only, install ~/.dsh/AGENTS.md）；orchestrator DEFAULT_ADAPTERS 加 dsh；adapters.test.mjs 加 A6 测试组（FileMap keys/round-trip/detect/install dryRun）；orchestrator.test.mjs + cli.test.mjs 从 3 平台→4 平台断言适配。248 tests 246 pass 0 fail 2 skip。决策：dsh 无 pattern 级 permission 模型（只有 session 级 ask/never + sandbox mode），放弃硬约束全部靠 agent 自治（advisory 渲染进 AGENTS.md）。
 - [x] 单源同步 + roadmap 热加载（2026-09-12）：双库分叉收口（E 盘 wip + 部署库 dsh 适配器两侧分支化合并入 main，push GitHub 唯一权威源）；AGENTS.md 骨架化 15017B→8688B（workflow 正文按需 Read，绝对路径索引，规则 5 流程先读后行）；同步原语 npm run sync（Tier3 语义测试：脏拒/分叉拒/哨兵检）；271 tests 269 pass 0 fail 2 skip。方案 output/v5/sync-architecture-plan.md。
+- [x] 骨架门禁 Tier4（2026-09-14）：静态骨架等价检查——golden 基准（探针策略渲染）+ 断言 A（等价，拦 renderer 漂移无 bump）+ 断言 B（不变，拦用户区触碰骨架）；sync generate 前真拦截 + GitHub CI 回归信号；280 tests 278 pass。方案 output/v6/skeleton-gate-plan.md。
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -62,6 +63,8 @@
 - 结论（同步通用性三原则，用户修订 2026-09-12）：①不对任何单一平台做特化适配（不写 DSH 专属钩子）②测试权威性=relic 自身测试体系（npm test + Tier1/2/3），单平台观察仅冒烟参考 ③9p 盘不跑测试（npm test 在 /mnt/e 超时，一切验证限定 ext4 dev clone）。理由：relic 是跨平台治理系统，DSH 只是受治理平台之一。
 - 结论（roadmap 渲染架构 2026-09-12）：AGENTS.md=骨架（硬约束表+替代方案+风险分级+subagent 提示+哨兵+给助手的话）+索引表（绝对路径）；workflow 正文留在 modules/ 触发时 Read（全平台热加载）；风险分级是跨模块合并视图、无单一文件可指，常驻骨架；路径=meta.runtimeRoot（本机 clone 根，generate CLI 注入）+meta.workflowSources（mergeFragments 溯源，inline 流程指向 policies.yaml）。理由：注入层热加载是平台赠品（DSH 有 reconcile，其他平台未必），读时加载是唯一平台无关的热治理机制。
 - 结论（一机一部署者 2026-09-12）：每台机器只有一个 clone 负责 generate+install（WSL=~/.config/relic dev clone；E盘库=归档/只读部署位，其 sync 不在本机部署）。理由：adapter 写 $HOME 路径，多 clone 同机部署会互相覆盖且 runtimeRoot 路径错乱。
+- 结论（骨架静态原则，用户拍板 2026-09-14）：正式系统骨架是静态的——骨架=渲染器的唯一函数；任何用户自定义提交（modules/policies 内容）导致骨架行变更即违法。骨架变更唯一合法路径=renderer 代码与 golden 基准（tests/fixtures/golden-skeleton.md）同一提交更新，golden 的 diff 就是系统级变更的审查材料。实现：Tier4 双断言（A 等价/B 不变），sync generate 前硬拦截 + CI 回归信号。理由：门禁守护治理系统本身，用户主权内容零审查——语法与结构是系统的，语义与内容是用户的。
+- 结论（门禁双点部署 2026-09-14）：GitHub CI 拦不住直推 main 的坏提交（push 即触发 5 分钟 sync 计时，CI 尚在跑），故真门禁必须内置 sync（骨架断言 <1s，全流程仍秒级）；CI 仅作远端独立复核与留痕。理由：拦截点必须在传播路径上，而非旁观者位置。
 
 ## 4. 已知约束
 
@@ -87,10 +90,14 @@
   - orchestrator/ — generate.mjs（流水线 + CLI 入口，+--profile）
   - index.mjs — 公共 API 门面（pipeline 一条龙，+profile 路由）
 - scripts/ — rollback.mjs（P3 GAP4）/ tier1-equivalence.mjs（P5）/ tier2-sentinel.mjs（P6）/ **deploy.mjs**（热插拔部署 CLI）/ **export.mjs**（导出封存 CLI）/ **sync.mjs**（同步原语 CLI，--init-deploy 装护栏）
-- tests/ — 24 个 .test.mjs + fixtures/；`npm test` 跑 271 tests（269 pass 0 fail 2 skip）；adapters.test.mjs 含 A6 dsh 组；sync.test.mjs = Tier3 同步语义（S1-S6）
+- tests/ — 25 个 .test.mjs + fixtures/；`npm test` 跑 280 tests（278 pass 0 fail 2 skip）；sync.test.mjs=Tier3；skeleton.test.mjs=Tier4 三绿三红
 - .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
 - output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - src/core/sync-core.mjs — 同步原语核心（runSync：脏拒/ff-only/哨兵检/状态；deployGuardHook）
+- src/core/skeleton.mjs — 骨架门禁纯逻辑（探针策略/骨架行集抽取/断言A等价/B不变性）
+- scripts/tier4-skeleton.mjs — 骨架门禁 CLI（--sync-check / --bump-golden 系统变更仪式 / CI 模式 HEAD~1 对比）
+- tests/fixtures/golden-skeleton.md — golden 骨架基准（改 renderer 必须同 commit bump）
+- .github/workflows/ci.yml — CI（npm ci → npm test → tier4）
 - docs/SYNC.md — 同步语义 + 各平台宿主调度器接入（systemd/cron/TaskScheduler/launchd）
 - output/v5/sync-architecture-plan.md — 单源同步+roadmap 热加载实施计划（已执行）
 - （前身，已归档）~/.config/opencode/agent-governance/ — policies.yaml 已 mv 到 backups/policies.yaml.archived-20260827-cutover；generated/ + install.sh + generate.mjs + lib/ 仍在但 relic 不再用；只读参考可删

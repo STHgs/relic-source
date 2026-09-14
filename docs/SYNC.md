@@ -74,3 +74,18 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 
 - 生成产物不入库（Q5）：每次 sync 在本地 generate，产物 = 派生物
 - 测试权威性（v5 计划原则 3）：验收以 `npm test`（L1）+ Tier1/2（L2）+ Tier3 sync.test（L3）为准；单平台行为（如 DSH 热注入）仅为冒烟参考
+
+## 骨架门禁（Tier4，2026-09-14）
+
+`npm run sync` 在 generate 之前运行骨架门禁；GitHub CI 在 push 后独立复核：
+
+- **断言 A（等价）**：`render(探针策略) === tests/fixtures/golden-skeleton.md`（字节级）。
+  拦截"改了渲染器但没 bump golden"的非法系统变更。
+- **断言 B（不变）**：本次渲染的骨架行 hash 与 `.last-sync` 记录一致；不一致且 golden 未变 → 拒绝部署。
+  拦截用户区提交（modules/policies 内容）导致的骨架侵蚀。
+
+**系统变更的合法仪式**：改 `src/render/agents-md.mjs` 的同一提交里运行
+`npm run check:skeleton -- --bump-golden` 并提交更新后的 golden——golden 的 diff 就是审查材料。
+
+**边界**：门禁只守护骨架（结构/哨兵/固定话术/索引格式）；workflow steps、risk items、
+permission patterns 属用户主权区，零审查。

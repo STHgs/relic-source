@@ -10,7 +10,8 @@
     "generate": "node src/orchestrator/generate.mjs",
     "deploy": "node scripts/deploy.mjs",
     "export": "node scripts/export.mjs",
-    "sync": "node scripts/sync.mjs"
+    "sync": "node scripts/sync.mjs",
+    "check:skeleton": "node scripts/tier4-skeleton.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

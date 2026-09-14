@@ -13,6 +13,9 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { runSync, deployGuardHook } from '../src/core/sync-core.mjs';
+import { renderAgentsMd } from '../src/render/agents-md.mjs';
+import { loadProfile } from '../src/core/module-loader.mjs';
+import { buildProbePolicies, extractSkeletonLines, assertGolden, checkImmutability } from '../src/core/skeleton.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +57,39 @@ if (args.includes('--init-deploy')) {
   process.exit(0);
 }
 
+// ---- 骨架门禁（generate 前拦截；原则：骨架静态，用户区提交触碰骨架=违法）----
+const GOLDEN_PATH = resolve(REPO_ROOT, 'tests/fixtures/golden-skeleton.md');
+const goldenText = readFileSync(GOLDEN_PATH, 'utf8');
+const gateA = assertGolden(renderAgentsMd(buildProbePolicies()), goldenText);
+if (!gateA.ok) {
+  console.error(`[relic] skeleton gate A FAILED: ${gateA.reason}`);
+  process.exit(1);
+}
+let skeletonState = null;
+{
+  const lp = loadProfile({ manifestPath: resolve(REPO_ROOT, 'policies.yaml') });
+  if (!lp.ok) { console.error('[relic] skeleton gate: loadProfile failed: ' + lp.errors.join('; ')); process.exit(1); }
+  const statePath = resolve(REPO_ROOT, '.last-sync');
+  let prevSkeletonSha = null, prevGoldenSha = null;
+  if (existsSync(statePath)) {
+    try {
+      const st = JSON.parse(readFileSync(statePath, 'utf8'));
+      prevSkeletonSha = st.skeletonSha ?? null; prevGoldenSha = st.goldenSha ?? null;
+    } catch { /* 损坏状态视为首次 */ }
+  }
+  const gateB = checkImmutability({
+    renderNowText: renderAgentsMd(lp.policies),
+    skeletonLines: extractSkeletonLines(goldenText).lines,
+    goldenText,
+    prevSkeletonSha, prevGoldenSha,
+  });
+  if (!gateB.ok) {
+    console.error(`[relic] skeleton gate B FAILED: ${gateB.reason}`);
+    process.exit(1);
+  }
+  skeletonState = { skeletonSha: gateB.skeletonSha, goldenSha: gateB.goldenSha };
+}
+
 const result = await runSync({
   exec,
   cwd: REPO_ROOT,
@@ -63,7 +99,15 @@ const result = await runSync({
 });
 
 if (result.ok) {
-  console.log(`[relic] sync OK — commit ${String(result.commit).slice(0, 8)}${result.pulled ? ' (pulled)' : ' (already current)'}; generated ${result.generated.length} file(s)`);
+  // 门禁状态持久化（成功部署后才记录，失败不落账）
+  if (skeletonState) {
+    const statePath = resolve(REPO_ROOT, '.last-sync');
+    try {
+      const st = JSON.parse(readFileSync(statePath, 'utf8'));
+      writeFileSync(statePath, JSON.stringify({ ...st, ...skeletonState }, null, 2) + '\n');
+    } catch { /* 状态合并失败不致命 */ }
+  }
+  console.log(`[relic] sync OK — commit ${String(result.commit).slice(0, 8)}${result.pulled ? ' (pulled)' : ' (already current)'}; generated ${result.generated.length} file(s); skeleton gate A+B PASS`);
   process.exit(0);
 }
 console.error(`[relic] sync FAILED at stage "${result.stage}": ${result.reason}`);
