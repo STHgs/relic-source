@@ -117,7 +117,7 @@ describe('I1: inject --type=permission --dry-run', () => {
     patterns: [{ pattern: 'testcmd *', action: 'ask' }],
     action: 'ask',
   };
-  const r = runCli(INJECT_CLI, ['--type=permission', '--dry-run', JSON.stringify(rule)]);
+  const r = runCli(INJECT_CLI, ['--type=permission', '--dry-run', '--policies', POLICIES, JSON.stringify(rule)]);
   const out = parseJson(r.stdout);
 
   it('exits 0', () => assert.equal(r.code, 0));
@@ -185,7 +185,7 @@ describe('I4: inject id clash → exit 2', () => {
     intent: 'Duplicate to trigger id clash',
     steps: ['step one', 'step two'],
   };
-  const r = runCli(INJECT_CLI, ['--type=workflow', '--dry-run', JSON.stringify(dup)]);
+  const r = runCli(INJECT_CLI, ['--type=workflow', '--dry-run', '--policies', POLICIES, JSON.stringify(dup)]);
   const out = parseJson(r.stdout);
   it('exits 2', () => assert.equal(r.code, 2));
   it('blocked:id_conflict', () => assert.equal(out.blocked, 'id_conflict'));

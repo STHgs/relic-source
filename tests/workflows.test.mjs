@@ -17,7 +17,7 @@ const REPO = resolve(__dirname, '..');
 
 const r = loadProfile({
   manifestPath: resolve(REPO, 'template', 'policies.yaml'),
-  modulesDir: resolve(REPO, 'modules'),
+  modulesDir: resolve(REPO, 'template', 'modules'),
 });
 const policies = r.policies;
 const md = renderAgentsMd(policies);
