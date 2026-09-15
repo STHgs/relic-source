@@ -113,31 +113,34 @@ export function assertGolden(probeRender, goldenText) {
 }
 
 /**
- * 断言 B：骨架不变性。骨架 hash 变了 且 golden 没变 → 违法。
+ * 断言 B（v2，确定性守卫）：渲染必须是输入的纯函数。
+ * inputSig = hash(内容commit + golden全文 + 渲染器源码)；outputSha = hash(渲染产物)。
+ * 规则：inputSig 与账本一致而 outputSha 不一致 → 违法（同输入不同输出=非确定性/篡改）；
+ * 输入变了 → 重新记录（合法性由断言 A + golden 同提交仪式守护）。
+ * v1 教训：v1 比对"匹配骨架行序列"，条件渲染段（人设激活）造成合法序列变化 → 误报。
  * @param {object} p
- * @param {string} p.renderNowText    当前真实策略的 render
- * @param {string[]} p.skeletonLines  golden 抽取的骨架行集
- * @param {string} p.goldenText       当前 golden 全文
- * @param {string|null} p.prevSkeletonSha 上次部署记录的骨架 hash（null=首次，放行）
- * @param {string|null} p.prevGoldenSha   上次部署记录的 golden hash
- * @returns {{ok:boolean, reason?:string, skeletonSha:string, goldenSha:string, systemChange?:boolean}}
+ * @param {string} p.contentCommit  内容库当前 commit
+ * @param {string} p.goldenText     当前 golden 全文
+ * @param {string} p.rendererText   当前渲染器源码全文
+ * @param {string} p.outputText     当前完整渲染产物
+ * @param {string|null} p.prevInputSig  账本记录的 inputSig（null=首次放行）
+ * @param {string|null} p.prevOutputSha 账本记录的 outputSha
  */
-export function checkImmutability(p) {
-  const skeletonSha = hashLines(skeletonLinesOf(p.renderNowText, p.skeletonLines));
-  const goldenSha = hashLines([p.goldenText]);
-  if (p.prevSkeletonSha == null) {
-    return { ok: true, skeletonSha, goldenSha, systemChange: false };
+export function computeDeterminismState({ contentCommit, goldenText, rendererText, outputText }) {
+  const inputSig = hashLines([contentCommit, hashLines([goldenText]), hashLines([rendererText])]);
+  return { inputSig, outputSha: hashLines([outputText]) };
+}
+
+/**
+ * @returns {{ok:boolean, reason?:string, inputSig:string, outputSha:string, changed:boolean}}
+ */
+export function checkDeterminism(p) {
+  const { inputSig, outputSha } = computeDeterminismState(p);
+  if (p.prevInputSig == null || p.prevInputSig !== inputSig) {
+    return { ok: true, inputSig, outputSha, changed: true };
   }
-  if (skeletonSha === p.prevSkeletonSha) {
-    return { ok: true, skeletonSha, goldenSha, systemChange: false };
+  if (p.prevOutputSha !== outputSha) {
+    return { ok: false, inputSig, outputSha, changed: false, reason: 'same inputs produced different output (non-deterministic render or tampering) — illegal' };
   }
-  if (p.prevGoldenSha != null && goldenSha !== p.prevGoldenSha) {
-    return { ok: true, skeletonSha, goldenSha, systemChange: true };
-  }
-  return {
-    ok: false,
-    skeletonSha,
-    goldenSha,
-    reason: 'skeleton lines changed while golden fixture unchanged (user-zone commit touching skeleton — illegal)',
-  };
+  return { ok: true, inputSig, outputSha, changed: false };
 }

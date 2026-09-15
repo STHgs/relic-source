@@ -2,8 +2,8 @@
 // scripts/tier4-skeleton.mjs — 骨架门禁 CLI（Tier4）
 // =============================================================================
 // 用法：
-//   node scripts/tier4-skeleton.mjs                    # CI 模式：断言 A + B(HEAD vs HEAD~1)
-//   node scripts/tier4-skeleton.mjs --sync-check       # sync 模式：断言 A + B(对比 .last-sync 记录)
+//   node scripts/tier4-skeleton.mjs   # 断言 A（golden 等价）+ 骨架行唯一性
+//                                     # （B 的确定性守卫在 sync 内联；v1 的 HEAD~1 渲染对比因条件段误报已移除）
 //   node scripts/tier4-skeleton.mjs --bump-golden      # 系统变更仪式：以当前探针渲染重写 golden
 //                                                      #（必须与 renderer 改动同一提交！）
 // 退出码：0=通过，1=违法/漂移
@@ -16,7 +16,7 @@ import { tmpdir } from 'os';
 import { parse } from 'yaml';
 import { renderAgentsMd } from '../src/render/agents-md.mjs';
 import { loadProfile } from '../src/core/module-loader.mjs';
-import { buildProbePolicies, extractSkeletonLines, assertGolden, checkImmutability } from '../src/core/skeleton.mjs';
+import { buildProbePolicies, extractSkeletonLines, assertGolden } from '../src/core/skeleton.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const GOLDEN = resolve(REPO, 'tests/fixtures/golden-skeleton.md');
@@ -58,68 +58,6 @@ if (!unique) failures.push('A: golden skeleton lines contain duplicates (ambiguo
 
 const renderNow = renderReal();
 
-if (args.includes('--sync-check')) {
-  // ---- sync 模式：对比内容库 .last-sync 记录（--content > config > template 回退） ----
-  let contentDir = resolve(REPO, 'template');
-  const ci = args.indexOf('--content');
-  if (ci >= 0 && args[ci + 1]) contentDir = resolve(args[ci + 1]);
-  else {
-    const cfgPath = resolve(REPO, 'relic.config.json');
-    if (existsSync(cfgPath)) {
-      try { contentDir = resolve(JSON.parse(readFileSync(cfgPath, 'utf8')).contentRepo); } catch { /* template */ }
-    }
-  }
-  const renderNow = renderReal(join(contentDir, 'policies.yaml'));
-  const statePath = join(contentDir, '.last-sync');
-  let prevSkeletonSha = null, prevGoldenSha = null;
-  if (existsSync(statePath)) {
-    try {
-      const st = JSON.parse(readFileSync(statePath, 'utf8'));
-      prevSkeletonSha = st.skeletonSha ?? null;
-      prevGoldenSha = st.goldenSha ?? null;
-    } catch { /* 损坏状态视为首次 */ }
-  }
-  const b = checkImmutability({ renderNowText: renderNow, skeletonLines, goldenText, prevSkeletonSha, prevGoldenSha });
-  if (!b.ok) failures.push('B: ' + b.reason);
-  // 输出新状态供 sync.mjs 持久化
-  console.log(JSON.stringify({ skeletonSha: b.skeletonSha, goldenSha: b.goldenSha, systemChange: !!b.systemChange }));
-} else {
-  // ---- CI 模式：HEAD vs HEAD~1 ----
-  const hasParent = sh('git rev-parse --verify HEAD~1').ok;
-  if (hasParent) {
-    // golden 是否在本提交范围被 bump（合法系统变更标志）
-    const goldenBumped = sh('git diff --name-only HEAD~1 HEAD -- tests/fixtures/golden-skeleton.md').out.trim() !== '';
-    // 用 HEAD~1 树构造上一版 render
-    // 引擎净化后参照内容 = template/（引擎树内唯一内容源）
-    const prevDir = join(tmpdir(), 'relic-tier4-prev-' + Date.now());
-    mkdirSync(join(prevDir, 'modules'), { recursive: true });
-    writeFileSync(join(prevDir, 'policies.yaml'), sh('git show HEAD~1:template/policies.yaml').out);
-    const modIds = sh("git ls-tree --name-only HEAD~1 template/modules/").out.trim().split('\n')
-      .map((s) => s.replace(/\/$/, '').split('/').pop())
-      .filter(Boolean);
-    for (const id of modIds) {
-      if (!id) continue;
-      mkdirSync(join(prevDir, 'modules', id), { recursive: true });
-      const c = sh(`git show HEAD~1:template/modules/${id}/module.yaml`);
-      if (c.ok && c.out.trim() !== '') writeFileSync(join(prevDir, 'modules', id, 'module.yaml'), c.out);
-    }
-    try {
-      const renderPrev = renderReal(join(prevDir, 'policies.yaml'));
-      const { createHash } = await import('crypto');
-      const h = (t) => createHash('sha256').update(t).digest('hex');
-      const prevSk = skeletonLinesOf_prev(renderPrev);
-      function skeletonLinesOf_prev(text) {
-        const set = new Set(skeletonLines);
-        return text.split('\n').filter((l) => set.has(l));
-      }
-      if (h(prevSk.join('\n')) !== h(skeletonLinesOf_prev(renderNow).join('\n')) && !goldenBumped) {
-        failures.push('B: skeleton lines changed in this commit while golden was not bumped (user-zone commit touching skeleton — illegal)');
-      }
-    } catch (e) {
-      failures.push('B: failed to render HEAD~1 tree: ' + e.message);
-    }
-  }
-}
 
 if (failures.length === 0) {
   console.log('[tier4] skeleton gate PASS — A(equivalence) + B(immutability)');

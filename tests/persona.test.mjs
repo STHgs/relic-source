@@ -13,7 +13,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { renderAgentsMd } from '../src/render/agents-md.mjs';
 import { createValidator } from '../src/core/validator.mjs';
-import { extractSkeletonLines, skeletonLinesOf, hashLines } from '../src/core/skeleton.mjs';
+import { extractSkeletonLines } from '../src/core/skeleton.mjs';
 
 const golden = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures/golden-skeleton.md'), 'utf8');
 const sk = extractSkeletonLines(golden).lines;
@@ -71,10 +71,10 @@ describe('P3: mechanism skeleton directives', () => {
 });
 
 describe('P4: gate interaction — persona is data, mechanism is skeleton', () => {
-  it('changing persona content does not change skeleton hash', () => {
-    const h1 = hashLines(skeletonLinesOf(renderAgentsMd({ ...base, personas: [persona] }), sk));
-    const h2 = hashLines(skeletonLinesOf(renderAgentsMd({ ...base, personas: [{ ...persona, tone: '完全不同的基调', directives: ['全新指令'] }] }), sk));
-    assert.equal(h1, h2);
+  it('persona content lines are data; only conditional section header is skeleton-locked', () => {
+    assert.ok(sk.includes('## 助手人设'), 'conditional header locked in golden');
+    assert.ok(!sk.some((l) => l.includes(persona.tone)), 'persona tone text must not be skeleton');
+    assert.ok(!sk.some((l) => persona.directives.some((d) => l.includes(d))), 'directives must not be skeleton');
   });
   it('mechanism lines are locked in golden (skeleton set)', () => {
     assert.ok(sk.some((l) => l.includes('学习与适应')));

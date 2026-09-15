@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import { runSync, deployGuardHook } from '../src/core/sync-core.mjs';
 import { renderAgentsMd } from '../src/render/agents-md.mjs';
 import { loadProfile } from '../src/core/module-loader.mjs';
-import { buildProbePolicies, extractSkeletonLines, assertGolden, checkImmutability } from '../src/core/skeleton.mjs';
+import { buildProbePolicies, assertGolden, checkDeterminism } from '../src/core/skeleton.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -94,27 +94,29 @@ if (!gateA.ok) {
 }
 let skeletonState = null;
 {
+  // 断言 B v2（确定性守卫）：渲染必须是输入的纯函数；输入变化即重录
   const lp = loadProfile({ manifestPath: CONTENT_POLICIES });
   if (!lp.ok) { console.error('[relic] skeleton gate: loadProfile failed: ' + lp.errors.join('; ')); process.exit(1); }
   const statePath = join(CONTENT_REPO, '.last-sync');
-  let prevSkeletonSha = null, prevGoldenSha = null;
+  let prevInputSig = null, prevOutputSha = null;
   if (existsSync(statePath)) {
     try {
       const st = JSON.parse(readFileSync(statePath, 'utf8'));
-      prevSkeletonSha = st.skeletonSha ?? null; prevGoldenSha = st.goldenSha ?? null;
+      prevInputSig = st.inputSig ?? null; prevOutputSha = st.outputSha ?? null;
     } catch { /* 损坏状态视为首次 */ }
   }
-  const gateB = checkImmutability({
-    renderNowText: renderAgentsMd(lp.policies),
-    skeletonLines: extractSkeletonLines(goldenText).lines,
+  const gateB = checkDeterminism({
+    contentCommit: exec('git rev-parse HEAD', CONTENT_REPO).stdout.trim(),
     goldenText,
-    prevSkeletonSha, prevGoldenSha,
+    rendererText: readFileSync(resolve(REPO_ROOT, 'src/render/agents-md.mjs'), 'utf8'),
+    outputText: renderAgentsMd(lp.policies),
+    prevInputSig, prevOutputSha,
   });
   if (!gateB.ok) {
-    console.error(`[relic] skeleton gate B FAILED: ${gateB.reason}`);
+    console.error(`[relic] determinism gate B FAILED: ${gateB.reason}`);
     process.exit(1);
   }
-  skeletonState = { skeletonSha: gateB.skeletonSha, goldenSha: gateB.goldenSha };
+  skeletonState = { inputSig: gateB.inputSig, outputSha: gateB.outputSha };
 }
 
 const result = await runSync({
