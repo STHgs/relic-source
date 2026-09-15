@@ -78,6 +78,7 @@
 - output/ 内产物按版本号独立存放（大改 v1/v2/v3，小改 v1.1/v1.2），禁止覆盖旧版本；新版本 = 复制上一版本 + 修改；原版本有缺陷时在本文件标注缺陷与修复版本号，不删除原版本。
 - 打包产物（如 zip）放工作区根目录 /mnt/e/AIworkspace/ 下，与本项目主文件夹平级。
 - 用户输入与反馈材料（截图、需求、bug 反馈）保存进 interaction/；处理用户反馈时先 `ls -lt` 查看该文件夹最新文件。
+- **inject.mjs --apply 有格式扰动副作用**（用户实测 2026-09-15）：yaml parse→stringify 整文件往返会删注释、改引号样式，污染 diff。临时规约：对带注释的 manifest 用精准 edit 插入，或 apply 后从 backup 恢复格式；根治方案（round-trip-safe 字符串拼接模式）列于下轮候选。backup 链在实测中成功兜底。
 
 ## 5. 文件地图
 
@@ -150,7 +151,7 @@
 - 引擎升级（各部署机）：`npm run upgrade -- --tag <t>`（慢道，更新 engine.lock）。
 - 新机器/新用户接入：`git clone https://github.com/STHgs/relic-source.git && cd relic-source && npm run bootstrap`。
 - 本机布局：`~/.config/relic`=引擎(dev) `~/.config/relic-sync`=身份内容 `~/.config/relic-habits/learned.yaml`=本机学习库（不入 git）。
-- 候选队列：内容库轻量 CI（引擎兼容检查）/ Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（搁置中，范围见 output/v7）/ 工作习惯 v2（多人格切换、跨机记忆层）。
+- 候选队列：**inject.mjs round-trip-safe 拼接模式**（apply 以 yamlSnippet 字符串插入锚点，保注释保引号，apply 后 re-parse 验证）/ 内容库轻量 CI / Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（搁置中）/ 工作习惯 v2（多人格切换、跨机记忆层）。
 - 任何新阶段先出方案（plan-then-build 硬规则）。历史已完成项见 §2。
 
 **待澄清**（迁移全落地）：
