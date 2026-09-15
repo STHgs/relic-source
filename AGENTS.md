@@ -28,7 +28,8 @@
 - [x] 热插拔部署 + 分支生命周期：deploy/export CLI + git-ops + deploy-lifecycle + export-pack 模块，241 tests 239 pass 0 fail 2 skip（3 not ok 为预存 cli.test.mjs hook 问题，非本轮引入）。方案见 output/v4/deploy-export-plan.md。
 - [x] dsh 适配器（路线 A）：新增 src/adapters/dsh.mjs（detect ~/.dsh, generate AGENTS.md only, install ~/.dsh/AGENTS.md）；orchestrator DEFAULT_ADAPTERS 加 dsh；adapters.test.mjs 加 A6 测试组（FileMap keys/round-trip/detect/install dryRun）；orchestrator.test.mjs + cli.test.mjs 从 3 平台→4 平台断言适配。248 tests 246 pass 0 fail 2 skip。决策：dsh 无 pattern 级 permission 模型（只有 session 级 ask/never + sandbox mode），放弃硬约束全部靠 agent 自治（advisory 渲染进 AGENTS.md）。
 - [x] 单源同步 + roadmap 热加载（2026-09-12）：双库分叉收口（E 盘 wip + 部署库 dsh 适配器两侧分支化合并入 main，push GitHub 唯一权威源）；AGENTS.md 骨架化 15017B→8688B（workflow 正文按需 Read，绝对路径索引，规则 5 流程先读后行）；同步原语 npm run sync（Tier3 语义测试：脏拒/分叉拒/哨兵检）；271 tests 269 pass 0 fail 2 skip。方案 output/v5/sync-architecture-plan.md。
-- [x] 骨架门禁 Tier4（2026-09-14）：静态骨架等价检查——golden 基准（探针策略渲染）+ 断言 A（等价，拦 renderer 漂移无 bump）+ 断言 B（不变，拦用户区触碰骨架）；sync generate 前真拦截 + GitHub CI 首跑全绿（run 34825193800）；285 tests 283 pass。方案 output/v6/skeleton-gate-plan.md。CI 调通顺带修复测试环境依赖（cli/cli-profile 自带 fake HOME、I3 模块副本动态化）——落实测试权威性=不依赖机器布局；gh token 补 workflow scope 后 workflow 方可推送。
+- [x] 骨架门禁 Tier4（2026-09-14）：静态骨架等价检查——golden 基准（探针策略渲染）+ 断言 A（等价，拦 renderer 漂移无 bump）+ 断言 B（不变，拦用户区触碰骨架）；sync generate 前真拦截 + GitHub CI 首跑全绿（run 34825193800）；285 tests 283 pass。方案 output/v6/skeleton-gate-plan.md。
+- [x] 引擎/内容拆分（2026-09-15）：relic（→GitHub rename relic-source）= 纯引擎静态权威源（template/ 种子 + CI 防混入断言）；STHgs/relic-sync = 本人身份内容库（init-sync --import 自动创建，含 engine.lock）；sync 内容库发现链（--content>env>relic.config.json>约定）；runtimeRoot=manifest 目录不变量；bootstrap 一键入口（自检/init-sync/依赖/sync/调度器自动安装）冒烟绿；upgrade 慢道脚本就绪。方案 output/v7/split-plan.md。CI 调通顺带修复测试环境依赖（cli/cli-profile 自带 fake HOME、I3 模块副本动态化）——落实测试权威性=不依赖机器布局；gh token 补 workflow scope 后 workflow 方可推送。
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -64,6 +65,7 @@
 - 结论（roadmap 渲染架构 2026-09-12）：AGENTS.md=骨架（硬约束表+替代方案+风险分级+subagent 提示+哨兵+给助手的话）+索引表（绝对路径）；workflow 正文留在 modules/ 触发时 Read（全平台热加载）；风险分级是跨模块合并视图、无单一文件可指，常驻骨架；路径=meta.runtimeRoot（本机 clone 根，generate CLI 注入）+meta.workflowSources（mergeFragments 溯源，inline 流程指向 policies.yaml）。理由：注入层热加载是平台赠品（DSH 有 reconcile，其他平台未必），读时加载是唯一平台无关的热治理机制。
 - 结论（一机一部署者 2026-09-12）：每台机器只有一个 clone 负责 generate+install（WSL=~/.config/relic dev clone；E盘库=归档/只读部署位，其 sync 不在本机部署）。理由：adapter 写 $HOME 路径，多 clone 同机部署会互相覆盖且 runtimeRoot 路径错乱。
 - 结论（骨架静态原则，用户拍板 2026-09-14）：正式系统骨架是静态的——骨架=渲染器的唯一函数；任何用户自定义提交（modules/policies 内容）导致骨架行变更即违法。骨架变更唯一合法路径=renderer 代码与 golden 基准（tests/fixtures/golden-skeleton.md）同一提交更新，golden 的 diff 就是系统级变更的审查材料。实现：Tier4 双断言（A 等价/B 不变），sync generate 前硬拦截 + CI 回归信号。理由：门禁守护治理系统本身，用户主权内容零审查——语法与结构是系统的，语义与内容是用户的。
+- 结论（拆分架构，用户拍板 2026-09-15）：source 库=relic-source（静态权威，持续开发，部署只读消费+tag 发布）；同步库=每配置身份一个，首次部署 init-sync 自动创建（多平台=clone 同一库）；引擎升级走慢道 npm run upgrade（显式事件），内容同步走快道 timer；Windows 原生适配暂时搁置列入后续方向。理由：骨架尚未完善会持续演进，权威源与个性化内容分离便于未来分享引擎。
 - 结论（门禁双点部署 2026-09-14）：GitHub CI 拦不住直推 main 的坏提交（push 即触发 5 分钟 sync 计时，CI 尚在跑），故真门禁必须内置 sync（骨架断言 <1s，全流程仍秒级）；CI 仅作远端独立复核与留痕。理由：拦截点必须在传播路径上，而非旁观者位置。
 
 ## 4. 已知约束

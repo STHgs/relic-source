@@ -89,3 +89,16 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 
 **边界**：门禁只守护骨架（结构/哨兵/固定话术/索引格式）；workflow steps、risk items、
 permission patterns 属用户主权区，零审查。
+
+## 拆分后架构（2026-09-15，v7）
+
+- 引擎：`STHgs/relic-source`（静态权威源；本机 `~/.config/relic`；升级 `npm run upgrade -- --tag <t>`）
+- 内容：`STHgs/relic-sync`（本身份；本机 `~/.config/relic-sync`；改规则在此 commit+push）
+- 发现链：`--content` 参数 > `RELIC_CONTENT_REPO` env > 引擎 `relic.config.json` > `~/.config/relic-sync`
+- 新机器接入：`git clone relic-source → npm run bootstrap`（自动 init-sync 或 clone 已有身份库）
+
+### 后续开发方向（Windows 原生适配暂缓，用户拍板 2026-09-15）
+
+- sync-core 跨平台执行（去 `sh -c`，Windows 用 cmd/args 数组）
+- Windows 调度器（schtasks）与路径处理
+- 内容库轻量 CI（引擎兼容检查）
