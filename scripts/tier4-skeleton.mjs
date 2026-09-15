@@ -28,9 +28,11 @@ const renderReal = (policiesPath) => {
   return renderAgentsMd(r.policies);
 };
 
+import { run as runExec } from '../src/core/exec.mjs';
 const sh = (cmd, cwd = REPO) => {
-  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env: { ...process.env, GIT_ASKPASS: '', GIT_TERMINAL_PROMPT: '0' } });
-  return { ok: r.status === 0, out: (r.stdout || '') + (r.stderr || '') };
+  const parts = cmd.split(' ');
+  const r = runExec(parts[0], parts.slice(1), { cwd });
+  return { ok: r.ok, out: r.stdout + r.stderr };
 };
 
 const args = process.argv.slice(2);

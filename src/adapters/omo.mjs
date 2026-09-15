@@ -11,13 +11,14 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { emptyReport } from './base.mjs';
+import { platformPaths } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
   id: 'omo',
 
   detect(env) {
-    return env.existsSync(join(env.home, '.omo', 'omo.jsonc'));
+    return env.existsSync(join(platformPaths(env.home).omo[0], 'omo.jsonc'));
   },
 
   generate(_policies, _env) {

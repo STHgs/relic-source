@@ -1,24 +1,77 @@
 // =============================================================================
-// scripts/install-schedule.mjs — 宿主调度器自动安装（bootstrap 第 6 步调用）
+// scripts/install-schedule.mjs — 宿主调度器自动安装（三平台）
 // =============================================================================
-// 探测顺序：systemd user bus → crontab → 报错（Windows 原生支持为后续开发方向，
-// 见 docs/SYNC.md「后续方向」）。
+// 探测顺序（D2）：
+//   win32  → schtasks（每 5 分钟）
+//   darwin → launchd（~/Library/LaunchAgents/dev.relic.sync.plist，StartInterval=300）
+//   linux  → systemd user timer → crontab 回退
+// 幂等：已有条目即跳过。
 // =============================================================================
 import { spawnSync } from 'child_process';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { userHome } from '../src/core/exec.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const HOME = userHome();
 const run = (file, args, opts = {}) => {
   const r = spawnSync(file, args, { encoding: 'utf8', ...opts });
   return { ok: r.status === 0, out: (r.stdout || '') + (r.stderr || '') };
 };
+const die = (m) => { console.error('[schedule] ' + m); process.exit(1); };
 
-// systemd？
+const PLATFORM = process.platform;
+
+if (PLATFORM === 'win32') {
+  // ─── Windows：schtasks ─────────────────────────────────────────────
+  const q = run('schtasks', ['/Query', '/TN', 'relic-sync']);
+  if (q.ok) { console.log('[schedule] ✅ schtasks 已有 relic-sync 任务'); process.exit(0); }
+  // /TR 值含空格需引号；cmd /c 链式进入仓库目录再 npm run sync
+  const tr = `cmd /c "cd /d ${REPO} && npm run sync"`;
+  const ins = run('schtasks', ['/Create', '/TN', 'relic-sync', '/SC', 'MINUTE', '/MO', '5', '/TR', tr]);
+  if (ins.ok) console.log('[schedule] ✅ schtasks 已创建（每 5 分钟，任务名 relic-sync）');
+  else die('schtasks 创建失败：' + ins.out + '\n  手动等价：schtasks /Create /TN relic-sync /SC MINUTE /MO 5 /TR "' + tr + '"');
+  process.exit(ins.ok ? 0 : 1);
+}
+
+if (PLATFORM === 'darwin') {
+  // ─── macOS：launchd（一等支持，补 v7 欠账）─────────────────────────
+  const label = 'dev.relic.sync';
+  const plDir = join(HOME, 'Library', 'LaunchAgents');
+  const plPath = join(plDir, label + '.plist');
+  mkdirSync(plDir, { recursive: true });
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${label}</string>
+  <key>WorkingDirectory</key><string>${REPO}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>npm</string>
+    <string>run</string>
+    <string>sync</string>
+  </array>
+  <key>StartInterval</key><integer>300</integer>
+  <key>StandardOutPath</key><string>${HOME}/.relic-sync.log</string>
+  <key>StandardErrorPath</key><string>${HOME}/.relic-sync.log</string>
+</dict>
+</plist>
+`;
+  writeFileSync(plPath, plist);
+  run('launchctl', ['unload', plPath]);            // 幂等：先卸旧
+  const load = run('launchctl', ['load', plPath]);
+  if (load.ok) console.log('[schedule] ✅ launchd 已加载（每 5 分钟，' + plPath + '）');
+  else die('launchctl load 失败：' + load.out + '（plist 已写好，请检查权限）');
+  process.exit(load.ok ? 0 : 1);
+}
+
+// ─── Linux：systemd → cron ───────────────────────────────────────────
 const sysd = run('systemctl', ['--user', 'is-system-running']);
 if (sysd.ok || !sysd.out.includes('Failed to connect')) {
-  const dir = join(process.env.HOME, '.config', 'systemd', 'user');
+  const dir = join(HOME, '.config', 'systemd', 'user');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'relic-sync.service'), `[Unit]
 Description=relic sync (pull --ff-only + generate + skeleton gate)
@@ -45,7 +98,7 @@ WantedBy=timers.target
   process.exit(en.ok ? 0 : 1);
 }
 
-// cron 回退
+// cron 回退（sh -c 仅 POSIX 路径使用）
 const line = `*/5 * * * * cd ${REPO} && npm run sync >> ~/.relic-sync.log 2>&1`;
 const cur = run('crontab', ['-l']).out;
 if (cur.includes('relic sync') || cur.includes('npm run sync')) {

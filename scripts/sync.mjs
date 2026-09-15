@@ -45,12 +45,11 @@ if (!existsSync(CONTENT_POLICIES)) {
   process.exit(1);
 }
 
+// Windows 适配：数组化经 exec.mjs（win32 shell 解析；POSIX 行为不变）
+import { run as runExec } from '../src/core/exec.mjs';
 const exec = (cmd, cwd) => {
-  // 无头加固：清掉交互式 askpass（如 VS Code socket），禁止终端挂起等提示——
-  // 凭据一律走 credential.helper（gh auth setup-git 配置），失败要快速失败。
-  const env = { ...process.env, GIT_ASKPASS: '', SSH_ASKPASS: '', GIT_TERMINAL_PROMPT: '0' };
-  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env });
-  return { ok: r.status === 0, stdout: r.stdout || '', stderr: r.stderr || '' };
+  const parts = cmd.split(' ');
+  return runExec(parts[0], parts.slice(1), { cwd });
 };
 
 const generateRun = () => new Promise((res) => {

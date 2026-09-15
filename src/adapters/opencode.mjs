@@ -14,13 +14,16 @@ import { existsSync, lstatSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { renderAgentsMd } from '../render/agents-md.mjs';
 import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { platformPaths, firstExisting } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
   id: 'opencode',
 
   detect(env) {
-    return env.existsSync(join(env.home, '.config', 'opencode', 'opencode.jsonc'));
+    // 双路径探测（D3）：win32 AppData 惯例 + POSIX XDG，命中任一即可
+    const dirs = platformPaths(env.home).opencode;
+    return firstExisting(dirs, (d) => env.existsSync(join(d, 'opencode.jsonc'))) !== null;
   },
 
   generate(policies, _env) {
@@ -30,7 +33,12 @@ export default {
   install(fileMap, opts) {
     const report = emptyReport();
     const home = opts.home;
-    const agentsMdPath = join(home, '.config', 'opencode', 'AGENTS.md');
+    // install 同样双路径：优先已存在目录；全新安装写第一个候选
+    const dirs = platformPaths(home).opencode;
+    const target = firstExisting(dirs, (d) => existsSync(join(d, 'opencode.jsonc')))
+      ?? firstExisting(dirs, existsSync)
+      ?? dirs[0];
+    const agentsMdPath = join(target, 'AGENTS.md');
 
     if (opts.dryRun) {
       report.skipped.push('opencode (dryRun)');

@@ -68,7 +68,15 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 
 ### macOS（launchd）
 
-`~/Library/LaunchAgents/dev.relic.sync.plist`：`StartInterval=300`，`ProgramArguments` 指向 `<clone>/scripts/sync.mjs` 的 node 进程。
+`install-schedule.mjs` 在 darwin 下自动写并加载 `~/Library/LaunchAgents/dev.relic.sync.plist`（StartInterval=300，日志 `~/.relic-sync.log`）——无需手工。
+
+### Windows 原生（2026-09-15 适配）
+
+- 命令执行：`src/core/exec.mjs` 数组化（win32 经 shell 解析 npm.cmd；POSIX 行为不变），sync/tier4/install-schedule 已迁移
+- 调度器：`install-schedule.mjs` win32 分支 = `schtasks /Create /TN relic-sync /SC MINUTE /MO 5`
+- 路径：`src/core/paths.mjs` 平台变体；opencode Windows 双路径探测（AppData\Roaming\opencode 优先，.config 兜底，真机实测后收敛）
+- HOME 归一：USERPROFILE > HOME > os.homedir（exec.userHome）
+- 待真机验证项：Windows node 环境跑 `npm run bootstrap` 全链 + opencode 实际指令读取路径确认
 
 ## 一致性说明
 

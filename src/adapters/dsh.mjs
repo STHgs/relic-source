@@ -18,13 +18,14 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { renderAgentsMd } from '../render/agents-md.mjs';
 import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { platformPaths } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
   id: 'dsh',
 
   detect(env) {
-    return env.existsSync(join(env.home, '.dsh'));
+    return env.existsSync(platformPaths(env.home).dsh[0]);
   },
 
   generate(policies, _env) {
@@ -34,7 +35,7 @@ export default {
   install(fileMap, opts) {
     const report = emptyReport();
     const home = opts.home;
-    const dshDir = join(home, '.dsh');
+    const dshDir = platformPaths(home).dsh[0];
     const agentsMdPath = join(dshDir, 'AGENTS.md');
 
     if (opts.dryRun) {

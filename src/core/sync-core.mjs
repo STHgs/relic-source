@@ -12,7 +12,8 @@
  * 执行一次同步。
  * @param {object} opts
  * @param {(cmd:string, cwd:string)=>{ok:boolean, stdout:string, stderr:string}} opts.exec
- *   命令执行器注入（真实实现用 spawnSync；测试可记录/伪造）。
+ *   命令执行器注入。真实实现 = exec.mjs 的数组化 run（win32 shell 兼容）；
+ *   注入的 cmd 为空格分隔字符串，由实现方 split 成数组（D1 兼容层）。
  * @param {string} opts.cwd              本 clone 根目录
  * @param {string} [opts.remote='origin']
  * @param {string} [opts.branch='main']
