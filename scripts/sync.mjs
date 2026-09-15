@@ -122,7 +122,7 @@ const result = await runSync({
   cwd: CONTENT_REPO,   // git 语义（脏拒/ff-only/分叉拒）作用于内容库
   generateRun,
   read: (p) => readFileSync(p, 'utf8'),
-  writeState: (p, s) => writeFileSync(resolve(REPO_ROOT, p), s),
+  writeState: (p, s) => writeFileSync(join(CONTENT_REPO, p), s),
 });
 
 if (result.ok) {
