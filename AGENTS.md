@@ -97,8 +97,13 @@
 - .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
 - output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - src/core/sync-core.mjs — 同步原语核心（runSync：脏拒/ff-only/哨兵检/状态；deployGuardHook）
-- src/core/skeleton.mjs — 骨架门禁纯逻辑（探针策略/骨架行集抽取/断言A等价/B不变性）
-- scripts/tier4-skeleton.mjs — 骨架门禁 CLI（--sync-check / --bump-golden 系统变更仪式 / CI 模式 HEAD~1 对比）
+- src/core/skeleton.mjs — 骨架门禁纯逻辑（探针策略/骨架行集抽取/断言A等价 + B确定性守卫v2：computeDeterminismState/checkDeterminism）
+- scripts/tier4-skeleton.mjs — 骨架门禁 CLI（断言A+唯一性；--bump-golden 系统变更仪式；v2 已精简）
+- scripts/init-sync.mjs — 每身份自动建库（gh 引导登录/--import 迁移/engine.lock/身份登记 relic.config.json）
+- scripts/upgrade.mjs — 引擎受控升级慢道（fetch→tag→test→门禁→sync→engine.lock 更新推送）
+- scripts/bootstrap.mjs — 一键部署入口（自检→身份→依赖→sync→调度器→报告；幂等）
+- scripts/install-schedule.mjs — 调度器自动安装（systemd→cron 回退；Windows 搁置）
+- template/ — 新身份种子（policies.yaml + 4 通用模块 + 人设注释样板 + habit-promotion 工作流）
 - tests/fixtures/golden-skeleton.md — golden 骨架基准（改 renderer 必须同 commit bump）
 - .github/workflows/ci.yml — CI（npm ci → npm test → tier4）
 - docs/SYNC.md — 同步语义 + 各平台宿主调度器接入（systemd/cron/TaskScheduler/launchd）
@@ -137,18 +142,14 @@
   - E盘库归位 main@最新 + .relic-deploy 护栏（只读部署位）；systemd timer 单元已写入 ~/.config/systemd/user/（启用需沙箱外执行）
   - 修复：cli.test G2/G3/I3 时序脆弱模式（describe 体引用 beforeEach-scratch，多文件模式下竞态）
 
-**下轮该做**：
-- ✅ 迁移完成。relic 是现网唯一治理源（manifest+modules → generate → install）。
-- 日常改规则：编辑 relic/modules/<id>/module.yaml → `npm run generate`（真写，A2 决策）→ 生效。
-- **首次部署**：`npm run deploy`（会创建 GitHub 私有仓库 + deploy 分支）
-- **导出封存**：`npm run export`（在 deploy 分支上跑，打 tar.gz + tag）
-- 回滚（如需）：`node scripts/rollback.mjs`（恢复 3 路径最新 .bak）+ backups/policies.yaml.archived-*。
-- ✅ 方向 2（roadmap 渲染）已完成（2026-09-12，含全平台热加载架构）。
-- 其他候选仍开放：人设功能 / Codex-Cursor 适配器。
-- ✅ dsh 适配器已完成（路线 A，只产 AGENTS.md，放弃 pattern 硬约束靠 agent 自治）。
-- **启用调度器**（用户在沙箱外执行一次）：`systemctl --user enable --now relic-sync.timer`（无 systemd 则 cron：`*/5 * * * * cd ~/.config/relic && npm run sync >> ~/.relic-sync.log 2>&1`）
-- 阶段 2 候选：CI 门禁（GitHub Actions 跑 npm test + round-trip）+ drift 检测；阶段 3 候选：WSL 部署位 symlink 化
-- 任何新阶段先调规划 agent 出方案（plan-then-build 硬规则）。
+**下轮该做**（架构已拆分：本库=引擎 relic-source；身份内容在 relic-sync 库）：
+- 日常改规则/人设：编辑 `~/.config/relic-sync/`（modules/ 或 policies.yaml）→ commit+push → 5 分钟全域热生效（急用手动 `npm run sync`）。
+- 引擎开发：在本 dev clone 开发；提交门=测试 fail 0 + tier4 PASS；**改渲染器必同提交 `--bump-golden`**（golden diff 即系统变更审查材料）。
+- 引擎升级（各部署机）：`npm run upgrade -- --tag <t>`（慢道，更新 engine.lock）。
+- 新机器/新用户接入：`git clone https://github.com/STHgs/relic-source.git && cd relic-source && npm run bootstrap`。
+- 本机布局：`~/.config/relic`=引擎(dev) `~/.config/relic-sync`=身份内容 `~/.config/relic-habits/learned.yaml`=本机学习库（不入 git）。
+- 候选队列：内容库轻量 CI（引擎兼容检查）/ Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（搁置中，范围见 output/v7）/ 工作习惯 v2（多人格切换、跨机记忆层）。
+- 任何新阶段先出方案（plan-then-build 硬规则）。历史已完成项见 §2。
 
 **待澄清**（迁移全落地）：
 - ✅ 6 决策点全拍板 + 全执行
@@ -157,5 +158,5 @@
 - ✅ Q1=丢弃 skills（A3 替代），P4 已记录
 - ✅ dsh 适配器已完成（路线 A，2026-09-05）
 - 第二个目标平台是哪个（Codex/Cursor）？（dsh 是第三个已完成的）
-- persona 范畴边界（语气风格？行为偏好？记忆？）——schema 槽位已留，功能待做。
+- ✅ persona v1 已落地（2026-09-15，L1-L4 工作习惯系统）；v2 边界待拍板：多人格热切换、跨机学习层（mem0/Letta 形态）
 - ✅ 方案详情：地基 output/v1/，方向 3 output/v2/，迁移策略 output/v3/migration-strategy-plan.md。
