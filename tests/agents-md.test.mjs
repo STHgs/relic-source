@@ -1,7 +1,7 @@
 // =============================================================================
 // tests/agents-md.test.mjs — AGENTS.md 渲染器测试（骨架化架构）
 // =============================================================================
-// R1: 骨架 — 硬约束表含每条 runtime 权限一行
+// R1: 骨架 — 治理约束表含每条权限一行（全量渲染，自律执行）
 // R2: 骨架 — 替代方案段
 // R3: 骨架 — subagent 治理提示段
 // R4: 骨架 — 给助手的话含哨兵指令（第 0 条）
@@ -27,12 +27,12 @@ const goodYaml = readFileSync(resolve(FIXTURES, 'policies-good.yaml'), 'utf8');
 const policies = createValidator()(parse(goodYaml)).doc;
 const md = renderAgentsMd(policies);
 
-describe('R1: 硬约束 table contains one row per runtime permission', () => {
+describe('R1: 治理约束 table contains one row per permission (self-compliance)', () => {
   it('contains the section header', () => {
-    assert.match(md, /## 硬约束/);
+    assert.match(md, /## 治理约束（自律执行）/);
   });
   it('contains a row for sudo-ask with tool=patterns=action=intent', () => {
-    const runtime = policies.permissions.filter((p) => p.enforcement === 'runtime');
+    const runtime = policies.permissions;  // 全量渲染（enforcement 语义已退役）
     for (const p of runtime) {
       const row = new RegExp(`\\| ${p.tool} \\|.*\\|.*\\| ${p.intent} \\|`);
       assert.match(md, row, `missing row for permission ${p.id}`);

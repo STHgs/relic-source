@@ -1,31 +1,16 @@
 // =============================================================================
 // src/adapters/omo.mjs — OMO (Oh-My-OpenCode) 平台适配器
 // =============================================================================
-// 架构修订（v4.1 findings-staging D 节）：**只治主 agent**
-// 执行层 runtime permission 只注入 PRIMARY_AGENT（sisyphus）。
-// subagent 的 permission 由 OMO 插件 TS 工厂硬编码（oracle/explore/librarian
-// 等 deny write/edit/task），relic 不注入——经三轮 librarian 查证：
-//   1. omo.jsonc 的 agentOverrides 路径对 sisyphus LIVE（经 deepMerge 生效）
-//   2. subagent permission 不读 omo.jsonc，来自 TS 工厂代码
-//   3. AGENTS.md 被 OpenCode V2 注入所有 agent，subagent 直接读到
-// 劝导层 AGENTS.md 负责对 subagent 说话（subagent 直接读，不需主 agent 转达）。
-//
-// 新 harness 接入只需声明 PRIMARY_AGENT 常量，不再画 ROLE_TO_AGENTS 全映射表。
-//
-// FileMap keys: { 'omo.permission.jsonc' }
-// install: deep-merge 进 ~/.omo/omo.jsonc [opencode].agents.sisyphus.permission
+// 治理哲学转变（用户拍板 2026-09-15）：去除运行时 permission 注入。
+// OMO 叠加在 OpenCode 之上，其治理文本由 opencode 适配器写的
+// ~/.config/opencode/AGENTS.md 送达（OpenCode V2 会注入所有 agent）。
+// 因此本适配器成为显式 no-op：detect 报告平台在场，不产出/不改写任何文件。
+// （历史：v4.1 曾深合并 sisyphus.permission 进 omo.jsonc；已退役。）
 // =============================================================================
 
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { buildPermissionMap } from '../core/permission-map.mjs';
-import { backup, writeWithHeader, emptyReport, readJsonc } from './base.mjs';
-
-/**
-* 该平台的主 agent 名——执行层 runtime permission 只注入到此 agent。
-* 新 harness 接入时改这一个常量即可。
-*/
-const PRIMARY_AGENT = 'sisyphus';
+import { emptyReport } from './base.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
@@ -35,64 +20,17 @@ export default {
     return env.existsSync(join(env.home, '.omo', 'omo.jsonc'));
   },
 
-  generate(policies, _env) {
-    const result = {};
-    result[PRIMARY_AGENT] = { permission: {} };
-    const perm = result[PRIMARY_AGENT].permission;
-    for (const p of policies.permissions || []) {
-      if (p.enforcement !== 'runtime') continue;
-      // 只处理 applies_to 含 primary 或 all 的规则——只治主 agent
-      if (!p.applies_to.includes('primary') && !p.applies_to.includes('all')) continue;
-      const map = buildPermissionMap(p);
-      const [tool, val] = Object.entries(map)[0];
-      if (typeof val === 'string') {
-        perm[tool] = val;
-      } else if (tool === 'bash') {
-        // opencode schema 只允许 bash 作为 pattern→action 对象；
-        // 其它工具（edit/webfetch/task/external_directory/doom_loop）只接受单字符串。
-        if (!perm[tool] || typeof perm[tool] !== 'object') perm[tool] = {};
-        Object.assign(perm[tool], val);
-      }
-      // else: 非 bash 工具带路径 patterns — opencode runtime 无法表达路径级权限，
-      // 由 advisory 层 AGENTS.md（edit-windows-ask / external-dir-ask）兜底；跳过以保配置合法。
-    }
-    return { 'omo.permission.jsonc': JSON.stringify(result, null, 2) + '\n' };
+  generate(_policies, _env) {
+    // route A no-op：治理文本由 opencode 适配器统一送达，本平台无独立产物
+    return {};
   },
 
-  install(fileMap, opts) {
+  install(_fileMap, opts) {
     const report = emptyReport();
-    const home = opts.home;
-    const configPath = join(home, '.omo', 'omo.jsonc');
-
     if (opts.dryRun) {
       report.skipped.push('omo (dryRun)');
-      return report;
-    }
-    if (!fileMap['omo.permission.jsonc']) {
-      report.skipped.push('omo (no permission file in map)');
-      return report;
-    }
-    try {
-      const bak = backup(configPath, opts);
-      if (bak) report.backups.push(bak);
-      // GAP1 fix: deep-merge permission into existing omo.jsonc
-      // (faithful port of live install.sh:87-94). Preserves
-      // model/fallback_models and other top-level + per-agent fields.
-      const genPerm = JSON.parse(fileMap['omo.permission.jsonc']);
-      const omo = existsSync(configPath) ? readJsonc(configPath) : {};
-      if (!omo['[opencode]']) omo['[opencode]'] = {};
-      if (!omo['[opencode]'].agents) omo['[opencode]'].agents = {};
-      for (const [agentName, agentOverride] of Object.entries(genPerm)) {
-        if (!omo['[opencode]'].agents[agentName]) omo['[opencode]'].agents[agentName] = {};
-        const existing = omo['[opencode]'].agents[agentName];
-        const newPerm = agentOverride.permission || {};
-        existing.permission = { ...(existing.permission || {}), ...newPerm };
-      }
-      writeWithHeader(configPath, JSON.stringify(omo, null, 2) + '\n');
-      report.written.push(configPath);
-    } catch (e) {
-      report.ok = false;
-      report.errors.push(`omo.permission.jsonc: ${e.message}`);
+    } else {
+      report.skipped.push('omo (route A no-op: governance delivered via opencode AGENTS.md)');
     }
     return report;
   },

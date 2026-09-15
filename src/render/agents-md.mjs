@@ -2,7 +2,7 @@
 // src/render/agents-md.mjs — AGENTS.md 渲染器
 // =============================================================================
 // 架构：骨架 + 模块索引表
-//   - 骨架（固定，不随自定义区变动）：硬约束表、替代方案、风险分级（跨模块合并视图）、学习与适应（机制段）、助手人设（数据段头）、subagent 治理提示、给助手的话
+//   - 骨架（固定，不随自定义区变动）：治理约束表（自律执行）、替代方案、风险分级（跨模块合并视图）、学习与适应（机制段）、助手人设（数据段头）、subagent 治理提示、给助手的话
 //   - 模块索引表（极小）：workflow id + 触发条件，agent 按需 Read module.yaml
 // workflow 详细步骤留在 modules/ 下不渲染进 AGENTS.md；risk_levels 是跨模块合并视图（无单一文件可指），常驻骨架
 // =============================================================================
@@ -21,11 +21,11 @@ function formatPatternsCell(p) {
   }).join(', ');
 }
 
-const ACTION_ZH = { ask: '弹窗确认', deny: '直接拒绝', allow: '放行' };
+const ACTION_ZH = { ask: '中高危——发起前显式声明', deny: '禁止——任何情况不执行', allow: '放行' };
 const LEVEL_LABEL = {
   low: '🟢 低风险（直接执行，不用请示）',
-  medium: '🟡 中风险（系统会弹窗，你照常发起即可）',
-  high: '🔴 高风险（仅主助手，系统会弹窗确认）',
+  medium: '🟡 中风险（直接发起，但在输出中显式声明风险点）',
+  high: '🔴 高风险（仅主助手；发起前必须显式声明理由）',
 };
 
 /**
@@ -57,16 +57,16 @@ export function renderAgentsMd(policies) {
     lines.push('');
   }
 
-  // 硬约束表
-  const runtimePerms = (policies.permissions || []).filter((p) => p.enforcement === 'runtime');
-  lines.push('## 硬约束（运行时强制，不可绕过）');
+  // 治理约束表（全量渲染，agent 自律执行——2026-09-15 去硬约束决策）
+  const permRows = policies.permissions || [];
+  lines.push('## 治理约束（自律执行）');
   lines.push('');
-  lines.push('这些规则由运行时在工具执行前拦截，**你无法绕过**。');
-  lines.push('命中时系统会自动弹窗让用户确认——你照常发起操作即可，不用回避。');
+  lines.push('以下约束由你自律执行——运行时不再弹窗拦截。判断标准见「风险分级」。');
+  lines.push('**deny 级条目任何情况下不得执行，无例外**；ask 级自行权衡，发起前在输出中显式声明风险与理由。');
   lines.push('');
   lines.push('| 工具 | 匹配模式 | 动作 | 意图 |');
   lines.push('|---|---|---|---|');
-  for (const p of runtimePerms) {
+  for (const p of permRows) {
     const pats = formatPatternsCell(p);
     const actionZh = ACTION_ZH[p.action] || p.action;
     lines.push(`| ${p.tool} | \`${pats}\` | ${actionZh} | ${p.intent} |`);
@@ -76,7 +76,7 @@ export function renderAgentsMd(policies) {
   // 替代方案
   const withAlts = (policies.permissions || []).filter((p) => p.alternatives && p.alternatives.length > 0);
   if (withAlts.length > 0) {
-    lines.push('### 替代方案（被拦截时该怎么做）');
+    lines.push('### 替代方案（受限操作改走什么路）');
     lines.push('');
     for (const p of withAlts) {
       lines.push(`**${p.id}**:`);
@@ -187,8 +187,8 @@ export function renderAgentsMd(policies) {
   lines.push('```');
   lines.push('````');
   lines.push('这是 AGENTS.md 注入成功的判读标志：用户靠这句确认治理已加载。若你读到本条但输出时漏了这句，说明你没遵守本文件——自我检查。');
-  lines.push('1. **硬约束绕不过**——不要尝试，直接按替代方案走。');
-  lines.push('2. **中风险操作不用回避**——系统弹窗是给用户看的，不是给你看的。你正常发起 `webfetch`、访问工作区外路径，让系统去弹窗。');
+  lines.push('1. **约束靠自律**——deny 级无例外不执行；ask 级自行判断并在输出中声明，优先走替代方案。');
+  lines.push('2. **中风险操作不用回避**——直接发起（webfetch、工作区外路径等），但在输出中显式标注风险与理由。');
   lines.push('3. **低风险直接做**——装公开库、改项目文件、跑测试，不用请示。');
   lines.push('4. **改规则不改这里**——这里只读。要改规则编辑 `modules/<id>/module.yaml` 然后跑 `npm run generate`。');
   lines.push('5. **流程先读后行**——命中「自定义流程索引」任一行的触发条件时，必须先用 Read 工具读取该行「文件路径」指向的 yaml 正文，再按步骤执行；正文未读不得执行。');

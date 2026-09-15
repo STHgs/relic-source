@@ -13,13 +13,15 @@
 //     条目本身（还有 model/fallback_models），OMO TS 工厂会接管 permission
 //
 // 主 agent（opencode=general, omo=sisyphus）不动——由 generate 更新。
-// 用法：node scripts/cleanup-legacy-permissions.mjs
+// 用法：node scripts/cleanup-legacy-permissions.mjs [--include-primary]
+//   --include-primary：2026-09-15 全量去硬约束后，主 agent 的注入也一并清除
 // =============================================================================
 
 import { readJsonc, writeWithHeader } from '../src/adapters/base.mjs';
 import { join } from 'path';
 import { homedir } from 'os';
 
+const INCLUDE_PRIMARY = process.argv.includes('--include-primary');  // 2026-09-15 去硬约束：连同主 agent 一起清
 const OPENCODE_PRIMARY = 'general';
 const OMO_PRIMARY = 'sisyphus';
 const OPENCODE_CONFIG = join(homedir(), '.config', 'opencode', 'opencode.jsonc');
@@ -36,7 +38,7 @@ try {
   let deleted = 0;
   const deletedNames = [];
   for (const [name, agent] of Object.entries(agents)) {
-    if (name === OPENCODE_PRIMARY) continue;
+    if (name === OPENCODE_PRIMARY && !INCLUDE_PRIMARY) continue;
     if (agent.permission) {
       delete agent.permission;
       deleted++;
@@ -62,7 +64,7 @@ try {
   let deleted = 0;
   const deletedNames = [];
   for (const [name, agent] of Object.entries(agents)) {
-    if (name === OMO_PRIMARY) continue;
+    if (name === OMO_PRIMARY && !INCLUDE_PRIMARY) continue;
     if (agent.permission) {
       delete agent.permission;
       deleted++;

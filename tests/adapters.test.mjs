@@ -28,41 +28,37 @@ const policies = createValidator()(parse(goodYaml)).doc;
 
 const fakeEnv = (paths, home = '/fake') => ({ home, existsSync: (p) => paths.has(p) });
 
-describe('A1: opencode FileMap keys', () => {
+describe('A1: opencode FileMap keys (route A)', () => {
   const fm = opencodeAdapter.generate(policies, fakeEnv(new Set()));
-  it('has opencode.agent.jsonc and AGENTS.md', () => {
-    assert.deepEqual(Object.keys(fm).sort(), ['AGENTS.md', 'opencode.agent.jsonc']);
+  it('has AGENTS.md only (runtime injection retired)', () => {
+    assert.deepEqual(Object.keys(fm).sort(), ['AGENTS.md']);
   });
-  it('opencode.agent.jsonc has ONLY general (primary-only, no role-flattening)', () => {
-    const obj = JSON.parse(fm['opencode.agent.jsonc']);
-    assert.deepEqual(Object.keys(obj).sort(), ['general']);
+  it('AGENTS.md contains self-compliance governance', () => {
+    assert.match(fm['AGENTS.md'], /治理约束（自律执行）/);
+    assert.ok(!fm['AGENTS.md'].includes('运行时强制'), 'must not claim runtime enforcement');
   });
 });
 
-describe('A2: omo FileMap keys + primary-only injection', () => {
+describe('A2: omo route A no-op', () => {
   const fm = omoAdapter.generate(policies, fakeEnv(new Set()));
-  it('has only omo.permission.jsonc', () => {
-    assert.deepEqual(Object.keys(fm), ['omo.permission.jsonc']);
+  it('produces no artifacts (governance via opencode AGENTS.md)', () => {
+    assert.deepEqual(Object.keys(fm), []);
   });
-  it('omo.permission.jsonc contains ONLY sisyphus (primary-only, no 4-agent mapping)', () => {
-    const obj = JSON.parse(fm['omo.permission.jsonc']);
-    assert.deepEqual(Object.keys(obj).sort(), ['sisyphus']);
-  });
-  it('sisyphus has permission block with bash rules', () => {
-    const obj = JSON.parse(fm['omo.permission.jsonc']);
-    assert.ok(obj.sisyphus.permission.bash, 'bash key missing');
+  it('install reports skipped no-op reason', () => {
+    const r = omoAdapter.install({}, { home: '/nonexistent', dryRun: false });
+    assert.equal(r.written.length, 0);
+    assert.ok(r.skipped.some((x) => x.includes('no-op')));
   });
 });
 
-describe('A3: opencode primary-only injection', () => {
+describe('A3: opencode route A', () => {
   const fm = opencodeAdapter.generate(policies, fakeEnv(new Set()));
-  const obj = JSON.parse(fm['opencode.agent.jsonc']);
-  it('general has permission with bash rules', () => {
-    assert.ok(obj.general.permission.bash, 'bash key missing in general');
+  it('FileMap = AGENTS.md only (no runtime permission injection)', () => {
+    assert.deepEqual(Object.keys(fm), ['AGENTS.md']);
   });
-  it('build and explore are NOT injected (primary-only)', () => {
-    assert.equal(obj.build, undefined, 'build should not be present');
-    assert.equal(obj.explore, undefined, 'explore should not be present');
+  it('AGENTS.md contains 治理约束 self-compliance table', () => {
+    assert.match(fm['AGENTS.md'], /## 治理约束（自律执行）/);
+    assert.match(fm['AGENTS.md'], /deny 级条目任何情况下不得执行/);
   });
 });
 
@@ -74,8 +70,8 @@ describe('A4: claude FileMap has ONLY AGENTS.md (F1 = DROP)', () => {
   it('NO claude.hooks.json key present', () => {
     assert.equal(fm['claude.hooks.json'], undefined);
   });
-  it('AGENTS.md content has 硬约束 section', () => {
-    assert.match(fm['AGENTS.md'], /## 硬约束/);
+  it('AGENTS.md content has 治理约束 section', () => {
+    assert.match(fm['AGENTS.md'], /## 治理约束/);
   });
 });
 
@@ -128,18 +124,15 @@ describe('adapter.install() dryRun', () => {
   const home = '/nonexistent-dry-run-path';
   it('opencode dryRun returns skipped, no written, no errors', () => {
     const r = opencodeAdapter.install(
-      { 'opencode.agent.jsonc': '{}', 'AGENTS.md': '# x' },
+      { 'AGENTS.md': '# x' },
       { home, dryRun: true }
     );
     assert.equal(r.written.length, 0);
     assert.equal(r.errors.length, 0);
     assert.ok(r.skipped.length > 0);
   });
-  it('omo dryRun returns skipped', () => {
-    const r = omoAdapter.install(
-      { 'omo.permission.jsonc': '{}' },
-      { home, dryRun: true }
-    );
+  it('omo dryRun returns skipped (route A no-op)', () => {
+    const r = omoAdapter.install({}, { home, dryRun: true });
     assert.equal(r.written.length, 0);
     assert.ok(r.skipped.length > 0);
   });
@@ -158,8 +151,8 @@ describe('A6: dsh FileMap keys', () => {
   it('keys = [AGENTS.md] only', () => {
     assert.deepEqual(Object.keys(fm), ['AGENTS.md']);
   });
-  it('AGENTS.md content has 硬约束 section', () => {
-    assert.match(fm['AGENTS.md'], /## 硬约束/);
+  it('AGENTS.md content has 治理约束 section', () => {
+    assert.match(fm['AGENTS.md'], /## 治理约束/);
   });
 });
 

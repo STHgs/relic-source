@@ -61,7 +61,7 @@ describe('RT1: split→merge→render == original render', () => {
   });
 
   it('rendered output semantically equivalent (same sections present)', () => {
-    for (const section of ['## 硬约束', '## 自定义流程索引', '## 给助手的话']) {
+    for (const section of ["## 治理约束（自律执行）", "## 自定义流程索引", "## 给助手的话"]) {
       assert.ok(mergedMd.includes(section), `merged missing section: ${section}`);
       assert.ok(originalMd.includes(section), `original missing section: ${section}`);
     }

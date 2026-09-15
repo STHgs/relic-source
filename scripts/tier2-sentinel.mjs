@@ -17,7 +17,7 @@
 //   node scripts/tier2-sentinel.mjs
 // =============================================================================
 
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { parse } from 'yaml';
@@ -99,6 +99,12 @@ export async function runTier2Sentinel(opts = {}) {
   try {
     scratch = mkdtempSync(join(tmpdir(), 'relic-tier2-'));
     seedFakehome(scratch);
+
+    // 捕获种子 permission（route A 断言基准：install 后必须原样）
+    const seedOmo = parseJsonc(readFileSync(join(scratch, '.omo', 'omo.jsonc'), 'utf8'));
+    const seedOmoSisyphusPerm = seedOmo?.['[opencode]']?.agents?.sisyphus?.permission ?? null;
+    const seedOc = parseJsonc(readFileSync(join(scratch, '.config', 'opencode', 'opencode.jsonc'), 'utf8'));
+    const seedOcGeneralPerm = seedOc?.agent?.general?.permission ?? null;
 
     // Load + validate policies
     const raw = parse(readRaw(policiesPath, 'utf8'));
@@ -201,22 +207,35 @@ export async function runTier2Sentinel(opts = {}) {
     });
     if (!customAgentOk) { result.pass = false; result.failures.push('opencode custom agent lost'); }
 
-    // ─── permission actually injected ────────────────────────────────
-    const omoPermInjected = !!sisyphus?.permission?.bash;
+    // ─── configs untouched (route A: no runtime injection) ───────────
+    // 2026-09-15 去硬约束：install 不得改写 opencode.jsonc / omo.jsonc 的 permission。
+    // 种子里预置的 permission 字段必须原样保留（或若种子无则保持无）。
+    const omoPermUntouched = JSON.stringify(sisyphus?.permission ?? null) === JSON.stringify(seedOmoSisyphusPerm);
     result.checks.push({
-      name: 'omo: permission injected',
-      pass: omoPermInjected,
-      detail: `sisyphus.permission.bash keys: ${Object.keys(sisyphus?.permission?.bash || {}).length}`,
+      name: 'omo: permission untouched by install',
+      pass: omoPermUntouched,
+      detail: `sisyphus.permission = ${JSON.stringify(sisyphus?.permission ?? null)}`,
     });
-    if (!omoPermInjected) { result.pass = false; result.failures.push('omo permission not injected'); }
+    if (!omoPermUntouched) { result.pass = false; result.failures.push('omo permission mutated by install'); }
 
-    const ocPermInjected = !!oc?.agent?.general?.permission?.bash;
+    const ocPermUntouched = JSON.stringify(oc?.agent?.general?.permission ?? null) === JSON.stringify(seedOcGeneralPerm);
     result.checks.push({
-      name: 'opencode: permission injected',
-      pass: ocPermInjected,
-      detail: `general.permission.bash keys: ${Object.keys(oc?.agent?.general?.permission?.bash || {}).length}`,
+      name: 'opencode: permission untouched by install',
+      pass: ocPermUntouched,
+      detail: `general.permission = ${JSON.stringify(oc?.agent?.general?.permission ?? null)}`,
     });
-    if (!ocPermInjected) { result.pass = false; result.failures.push('opencode permission not injected'); }
+    if (!ocPermUntouched) { result.pass = false; result.failures.push('opencode permission mutated by install'); }
+
+    // AGENTS.md 哨兵：治理文本必须写入且含自律约束表与哨兵指令
+    const ocAgentsMd = existsSync(join(scratch, '.config', 'opencode', 'AGENTS.md'))
+      ? readFileSync(join(scratch, '.config', 'opencode', 'AGENTS.md'), 'utf8') : '';
+    const agentsMdOk = ocAgentsMd.includes('## 治理约束（自律执行）') && ocAgentsMd.includes('RELIC IS RUNNING');
+    result.checks.push({
+      name: 'opencode: AGENTS.md governance delivered',
+      pass: agentsMdOk,
+      detail: `AGENTS.md ${ocAgentsMd.length} bytes`,
+    });
+    if (!agentsMdOk) { result.pass = false; result.failures.push('opencode AGENTS.md governance missing'); }
 
     return result;
   } catch (e) {

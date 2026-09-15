@@ -51,10 +51,11 @@ describe('P6: Tier-2 install-semantics sentinel', () => {
     assert.equal(c.pass, true, c.detail);
   });
 
-  it('permission actually injected (both platforms)', async () => {
+  it('permission untouched + AGENTS.md governance delivered (route A)', async () => {
     const r = await runTier2Sentinel();
-    const omoC = r.checks.find((x) => x.name === 'omo: permission injected');
-    const ocC = r.checks.find((x) => x.name === 'opencode: permission injected');
+    const omoC = r.checks.find((x) => x.name === 'omo: permission untouched by install');
+    const ocC = r.checks.find((x) => x.name === 'opencode: permission untouched by install')
+      ?? r.checks.find((x) => x.name === 'opencode: AGENTS.md governance delivered');
     assert.ok(omoC && ocC, 'checks missing');
     assert.equal(omoC.pass, true, `omo: ${omoC.detail}`);
     assert.equal(ocC.pass, true, `opencode: ${ocC.detail}`);
