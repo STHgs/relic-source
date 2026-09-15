@@ -90,16 +90,17 @@ if (args.includes('--sync-check')) {
     // golden 是否在本提交范围被 bump（合法系统变更标志）
     const goldenBumped = sh('git diff --name-only HEAD~1 HEAD -- tests/fixtures/golden-skeleton.md').out.trim() !== '';
     // 用 HEAD~1 树构造上一版 render
+    // 引擎净化后参照内容 = template/（引擎树内唯一内容源）
     const prevDir = join(tmpdir(), 'relic-tier4-prev-' + Date.now());
     mkdirSync(join(prevDir, 'modules'), { recursive: true });
-    writeFileSync(join(prevDir, 'policies.yaml'), sh('git show HEAD~1:policies.yaml').out);
-    const modIds = sh("git ls-tree --name-only HEAD~1 modules/").out.trim().split('\n')
+    writeFileSync(join(prevDir, 'policies.yaml'), sh('git show HEAD~1:template/policies.yaml').out);
+    const modIds = sh("git ls-tree --name-only HEAD~1 template/modules/").out.trim().split('\n')
       .map((s) => s.replace(/\/$/, '').split('/').pop())
       .filter(Boolean);
     for (const id of modIds) {
       if (!id) continue;
       mkdirSync(join(prevDir, 'modules', id), { recursive: true });
-      const c = sh(`git show HEAD~1:modules/${id}/module.yaml`);
+      const c = sh(`git show HEAD~1:template/modules/${id}/module.yaml`);
       if (c.ok && c.out.trim() !== '') writeFileSync(join(prevDir, 'modules', id, 'module.yaml'), c.out);
     }
     try {
