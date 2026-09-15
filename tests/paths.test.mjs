@@ -15,7 +15,6 @@ describe('PA1: POSIX platform paths', () => {
   it('opencode uses XDG single path', () => {
     const p = platformPaths('/home/u');
     assert.deepEqual(p.opencode, ['/home/u/.config/opencode']);
-    assert.equal(p.claude[0], '/home/u/.claude');
     assert.equal(p.dsh[0], '/home/u/.dsh');
   });
 });

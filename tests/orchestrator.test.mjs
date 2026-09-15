@@ -1,8 +1,8 @@
 // =============================================================================
 // tests/orchestrator.test.mjs — T10 orchestrator + index.mjs 测试
 // =============================================================================
-// O1: 所有 4 平台 fake-present 时 dryRun 报告 written:[]/skipped:[]/errors:[]
-// O2: 没平台在场时 skipped 列全部 4 适配器，written:[]
+// O1: 所有 3 平台 fake-present 时 dryRun 报告 written:[]/skipped:[]/errors:[]
+// O2: 没平台在场时 skipped 列全部 3 适配器，written:[]
 // O3: index.mjs pipeline load→validate→generate→install(dryRun) 返回连贯的 InstallReport
 // =============================================================================
 
@@ -52,9 +52,9 @@ const makeEnv = (present) => {
   return { home, existsSync: (p) => paths.has(p) };
 };
 
-describe('O1: all 4 platforms fake-present, dryRun → no writes, no errors', () => {
+describe('O1: all 3 platforms fake-present, dryRun → no writes, no errors', () => {
   it('returns ok=true with written:[] and skipped listing all 4 as dryRun', async () => {
-    const env = makeEnv({ opencode: true, omo: true, claude: true, dsh: true });
+    const env = makeEnv({ opencode: true, omo: true, dsh: true });  // claude 已退役
     // 注入 env 进 generate：需要传 existsSync 和 home
     const r = await generate(goodPolicies, {
       home: env.home,
@@ -66,16 +66,15 @@ describe('O1: all 4 platforms fake-present, dryRun → no writes, no errors', ()
     assert.equal(r.report.written.length, 0);  // dryRun 不写
     // 4 个适配器都检测到了，各有一条 dryRun skipped
     const dryRunSkips = r.report.skipped.filter((s) => s.includes('dryRun'));
-    assert.equal(dryRunSkips.length, 4);
+    assert.equal(dryRunSkips.length, 3);
     // fileMaps 四个都有
     assert.ok(r.fileMaps.opencode, 'opencode fileMap present');
     assert.ok(r.fileMaps.omo, 'omo fileMap present');
-    assert.ok(r.fileMaps.claude, 'claude fileMap present');
     assert.ok(r.fileMaps.dsh, 'dsh fileMap present');
   });
 });
 
-describe('O2: no platform present → skipped lists all 4, written:[]', () => {
+describe('O2: no platform present → skipped lists all 3, written:[]', () => {
   it('all 4 adapters in skipped as not-detected, fileMaps empty', async () => {
     const env = makeEnv({ opencode: false, omo: false, claude: false, dsh: false });
     const r = await generate(goodPolicies, {
@@ -86,7 +85,7 @@ describe('O2: no platform present → skipped lists all 4, written:[]', () => {
     assert.equal(r.ok, true);
     assert.equal(r.report.written.length, 0);
     const notDetected = r.report.skipped.filter((s) => s.includes('not detected'));
-    assert.equal(notDetected.length, 4);
+    assert.equal(notDetected.length, 3);  // claude retired
     assert.equal(Object.keys(r.fileMaps).length, 0);
   });
 });

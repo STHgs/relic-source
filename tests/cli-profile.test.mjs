@@ -37,7 +37,6 @@ mkdirSync(join(FAKE_HOME, '.config', 'opencode'), { recursive: true });
 writeFileSync(join(FAKE_HOME, '.config', 'opencode', 'opencode.jsonc'), '{}');
 mkdirSync(join(FAKE_HOME, '.omo'), { recursive: true });
 writeFileSync(join(FAKE_HOME, '.omo', 'omo.jsonc'), '{}');
-mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
 mkdirSync(join(FAKE_HOME, '.dsh'), { recursive: true });
 
 const runCli = (cli, args, opts = {}) => {
@@ -55,10 +54,9 @@ describe('G4: generate --profile work --dry-run', () => {
   const out = parseJson(r.stdout);
   it('exits 0', () => assert.equal(r.code, 0));
   it('ok:true', () => assert.ok(out && out.ok === true));
-  it('fileMaps has opencode/omo/claude', () => {
+  it('fileMaps has opencode/omo', () => {
     assert.ok(out.fileMaps.opencode);
     assert.ok(out.fileMaps.omo);
-    assert.ok(out.fileMaps.claude);
   });
 });
 

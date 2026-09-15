@@ -40,7 +40,6 @@ mkdirSync(join(FAKE_HOME, '.config', 'opencode'), { recursive: true });
 writeFileSync(join(FAKE_HOME, '.config', 'opencode', 'opencode.jsonc'), '{}');  // detect 的是文件
 mkdirSync(join(FAKE_HOME, '.omo'), { recursive: true });
 writeFileSync(join(FAKE_HOME, '.omo', 'omo.jsonc'), '{}');  // detect 的是文件
-mkdirSync(join(FAKE_HOME, '.claude'), { recursive: true });
 mkdirSync(join(FAKE_HOME, '.dsh'), { recursive: true });
 
 const runCli = (cli, args, opts = {}) => {
@@ -64,16 +63,15 @@ describe('G1: generate --dry-run', () => {
   it('stdout is valid JSON', () => assert.ok(out, `stdout was: ${r.stdout.slice(0, 200)}`));
   it('ok:true', () => assert.equal(out.ok, true));
   it('dryRun:true', () => assert.equal(out.dryRun, true));
-  it('has fileMaps with opencode/omo/claude/dsh', () => {
+  it('has fileMaps with opencode/omo/dsh', () => {
     assert.ok(out.fileMaps, 'fileMaps present');
     assert.ok(out.fileMaps.opencode, 'opencode present');
     assert.ok(out.fileMaps.omo, 'omo present');
-    assert.ok(out.fileMaps.claude, 'claude present');
     assert.ok(out.fileMaps.dsh, 'dsh present');
   });
   it('skipped lists all 4 as dryRun', () => {
     const dryRunSkips = out.skipped.filter((s) => s.includes('dryRun'));
-    assert.equal(dryRunSkips.length, 4);
+    assert.equal(dryRunSkips.length, 3);
   });
 });
 

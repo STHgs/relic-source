@@ -18,7 +18,6 @@ import { parse, stringify } from 'yaml';
 import { createValidator } from '../src/core/validator.mjs';
 import opencodeAdapter from '../src/adapters/opencode.mjs';
 import omoAdapter from '../src/adapters/omo.mjs';
-import claudeAdapter from '../src/adapters/claude.mjs';
 import dshAdapter from '../src/adapters/dsh.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -62,19 +61,6 @@ describe('A3: opencode route A', () => {
   });
 });
 
-describe('A4: claude FileMap has ONLY AGENTS.md (F1 = DROP)', () => {
-  const fm = claudeAdapter.generate(policies, fakeEnv(new Set()));
-  it('keys = [AGENTS.md] only', () => {
-    assert.deepEqual(Object.keys(fm), ['AGENTS.md']);
-  });
-  it('NO claude.hooks.json key present', () => {
-    assert.equal(fm['claude.hooks.json'], undefined);
-  });
-  it('AGENTS.md content has 治理约束 section', () => {
-    assert.match(fm['AGENTS.md'], /## 治理约束/);
-  });
-});
-
 describe('A5: round-trip stability', () => {
   const fm1 = opencodeAdapter.generate(policies, fakeEnv(new Set()));
   const fm2 = opencodeAdapter.generate(
@@ -92,11 +78,7 @@ describe('A5: round-trip stability', () => {
     assert.equal(fmOmo1['omo.permission.jsonc'], fmOmo2['omo.permission.jsonc']);
   });
 
-  const fmCl1 = claudeAdapter.generate(policies, fakeEnv(new Set()));
-  const fmCl2 = claudeAdapter.generate(parse(stringify(policies)), fakeEnv(new Set()));
-  it('claude FileMap byte-identical after round-trip', () => {
-    assert.equal(fmCl1['AGENTS.md'], fmCl2['AGENTS.md']);
-  });
+  // claude round-trip 断言随适配器退役移除（route A 同构逻辑已由 A3/A6 覆盖）
 });
 
 describe('adapter.detect()', () => {
@@ -113,11 +95,6 @@ describe('adapter.detect()', () => {
     const env = fakeEnv(new Set([join(home, '.omo', 'omo.jsonc')]), home);
     assert.equal(omoAdapter.detect(env), true);
   });
-  it('claude detects when ~/.claude dir present', () => {
-    const home = '/fake';
-    const env = fakeEnv(new Set([join(home, '.claude')]), home);
-    assert.equal(claudeAdapter.detect(env), true);
-  });
 });
 
 describe('adapter.install() dryRun', () => {
@@ -133,14 +110,6 @@ describe('adapter.install() dryRun', () => {
   });
   it('omo dryRun returns skipped (route A no-op)', () => {
     const r = omoAdapter.install({}, { home, dryRun: true });
-    assert.equal(r.written.length, 0);
-    assert.ok(r.skipped.length > 0);
-  });
-  it('claude dryRun returns skipped', () => {
-    const r = claudeAdapter.install(
-      { 'AGENTS.md': '# x' },
-      { home, dryRun: true }
-    );
     assert.equal(r.written.length, 0);
     assert.ok(r.skipped.length > 0);
   });

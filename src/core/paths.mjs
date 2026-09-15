@@ -9,7 +9,7 @@
 /**
  * 各适配器在指定 home 下的候选目录（按优先序；detect 逐个探测）。
  * @param {string} home  归一化用户主目录（exec.userHome()）
- * @returns {{ opencode: string[], claude: string[], dsh: string[], omo: string[] }}
+ * @returns {{ opencode: string[], dsh: string[], omo: string[] }}
  */
 export function platformPaths(home) {
   if (process.platform === 'win32') {
@@ -18,14 +18,12 @@ export function platformPaths(home) {
         `${home}\\AppData\\Roaming\\opencode`,   // Windows 原生惯例（待实测收敛）
         `${home}\\.config\\opencode`,              // 兜底：官方若走 XDG 风格
       ],
-      claude: [`${home}\\.claude`],
       dsh: [`${home}\\.dsh`],
       omo: [`${home}\\.omo`],
     };
   }
   return {
     opencode: [`${home}/.config/opencode`],
-    claude: [`${home}/.claude`],
     dsh: [`${home}/.dsh`],
     omo: [`${home}/.omo`],
   };
