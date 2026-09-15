@@ -7,6 +7,22 @@ meta:
 
 permissions: []
 
+# 助手人设（声明层工作习惯）——取消注释并按需修改；改后 commit+push，5 分钟全域生效。
+# 学习机制会自动适应用户偏好（本机 ~/.config/relic-habits/learned.yaml）；
+# 说"记住/固化"可把学到的东西晋升到这里。
+personas: []
+# personas:
+#   - id: default
+#     name: 主人设
+#     default: true
+#     identity: "简洁、直接的资深工程搭档"
+#     language: zh-CN
+#     tone: "技术准确优先，不绕弯子；不确定就说不确定"
+#     verbosity: compact        # terse | compact | detailed
+#     directives:
+#       - 先给结论，再给依据
+#       - 代码改动必须说明影响面
+
 workflows:
   - id: add-permission
     intent: Add a new permission rule via conversational interview
@@ -30,6 +46,15 @@ workflows:
       - "Run `node src/core/inject.mjs --type=workflow --dry-run '<JSON>'` to preview"
       - "Show the yamlSnippet and conflictCheck to the user"
       - "On user confirm, re-run with --apply (auto-runs generate)"
+  - id: habit-promotion
+    intent: Promote a learned habit into the declared persona layer (user-triggered)
+    applies_when: user says remember/pin a habit (记住/固化这条习惯)
+    priority: normal
+    steps:
+      - "Confirm the exact habit wording with the user (one sentence)"
+      - "Append it to personas[default].directives in the sync repo policies.yaml"
+      - "commit with message chore(persona): promote <habit summary> and push"
+      - "Tell the user it takes effect across all platforms within 5 minutes; optionally remove the matching entry from local learned.yaml"
 
 risk_levels:
   low: []

@@ -117,7 +117,11 @@
         "id":         { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
         "name":       { "type": "string", "minLength": 1 },
         "tone":       { "type": "string" },
-        "directives": { "type": "array", "items": { "type": "string" }, "default": [] }
+        "directives": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "default":    { "type": "boolean", "description": "Rendered as the active persona (v1 renders only the default).", "default": false },
+        "identity":   { "type": "string", "description": "One-line self-identity / role positioning." },
+        "language":   { "type": "string", "description": "Reply language, e.g. zh-CN." },
+        "verbosity":  { "enum": ["terse", "compact", "detailed"] }
       },
       "additionalProperties": false
     },

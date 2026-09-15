@@ -2,7 +2,7 @@
 // src/render/agents-md.mjs — AGENTS.md 渲染器
 // =============================================================================
 // 架构：骨架 + 模块索引表
-//   - 骨架（固定，不随自定义区变动）：硬约束表、替代方案、subagent 治理提示、给助手的话
+//   - 骨架（固定，不随自定义区变动）：硬约束表、替代方案、风险分级（跨模块合并视图）、学习与适应（机制段）、助手人设（数据段头）、subagent 治理提示、给助手的话
 //   - 模块索引表（极小）：workflow id + 触发条件，agent 按需 Read module.yaml
 // workflow 详细步骤留在 modules/ 下不渲染进 AGENTS.md；risk_levels 是跨模块合并视图（无单一文件可指），常驻骨架
 // =============================================================================
@@ -101,6 +101,37 @@ export function renderAgentsMd(policies) {
       lines.push('');
     }
   }
+
+  // 助手人设（L1 声明层：数据段，渲染 default persona；内容自由，骨架不动）
+  const personas = policies.personas || [];
+  const persona = personas.find((x) => x.default === true) ?? (personas.length === 1 ? personas[0] : undefined);
+  if (persona) {
+    lines.push('## 助手人设');
+    lines.push('');
+    lines.push('> 用户声明的工作习惯（声明层）。修改：同步库 policies.yaml 的 personas 段，commit+push 后 5 分钟全域生效。');
+    lines.push('');
+    if (persona.identity) lines.push(`- **定位**：${persona.identity}`);
+    if (persona.language) lines.push(`- **语言**：${persona.language}`);
+    if (persona.tone) lines.push(`- **基调**：${persona.tone}`);
+    if (persona.verbosity) lines.push(`- **详细度**：${persona.verbosity}`);
+    if (persona.directives && persona.directives.length > 0) {
+      lines.push('- **常驻指令**：');
+      for (const d of persona.directives) lines.push(`  - ${d}`);
+    }
+    lines.push('');
+  }
+
+  // 学习与适应（骨架：每轮自主学习的机制指令——人工奖励信号驱动，符号策略增量）
+  lines.push('## 学习与适应（每轮生效）');
+  lines.push('');
+  lines.push('1. 每轮对话中观察用户偏好信号——显式（"简洁点 / 用表格 / 以后都这样"）与隐式（反复修改你的输出格式、总跳过某类内容、固定用语习惯）。');
+  lines.push('2. 发现偏好 → 本轮起立即调整输出（无需确认）；同主题新偏好覆盖旧偏好。');
+  lines.push('3. 落盘判据：只记"对未来对话有用"、且 ①助手人设（声明层）未覆盖 ②无法从环境（代码/git/目录）推导 的偏好；非每轮必写。');
+  lines.push('4. 持久化：追加到 `~/.config/relic-habits/learned.yaml`（不存在则创建）。条目含 type（style|feedback|workflow|reference）、观察、依据（何轮何信号）、时间戳；同主题覆盖更新；上限 50 条（超限淘汰最久未命中）；文件超 25KB 时输出告警并截断加载。');
+  lines.push('5. 每个 session 首轮输出前 Read 该文件（存在则加载应用）。');
+  lines.push('6. 优先级：助手人设（声明层）> 本 session 新学习 > 历史学习条目。');
+  lines.push('7. 晋升：用户说"记住 / 固化"某习惯 → 将其写入同步库 policies.yaml 的 personas.directives 并 commit+push（全域 5 分钟生效）。');
+  lines.push('');
 
   // 模块索引表（workflow 详细步骤留在 modules/ 下，按需 Read——方向 2）
   // 路径 = meta.runtimeRoot（本机 clone 根）+ workflowSources 溯源；缺省时退化为 Glob 提示。

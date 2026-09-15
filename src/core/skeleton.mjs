@@ -48,7 +48,16 @@ export function buildProbePolicies() {
       steps: [PROBE_MARK],
     }],
     risk_levels: { low: [PROBE_MARK], medium: [PROBE_MARK], high: [PROBE_MARK] },
-    personas: [],
+    personas: [{
+      id: 'probe-persona',
+      name: PROBE_MARK,
+      default: true,
+      identity: PROBE_MARK,
+      language: PROBE_MARK,
+      tone: PROBE_MARK,
+      verbosity: 'compact',
+      directives: [PROBE_MARK],
+    }],
     modules: [],
     profiles: [],
   };
