@@ -22,8 +22,8 @@ import { stringify } from 'yaml';
 const REPO = resolve(import.meta.dirname, '..');
 const GEN_CLI = join(REPO, 'src', 'orchestrator', 'generate.mjs');
 const INJECT_CLI = join(REPO, 'src', 'core', 'inject.mjs');
-const POLICIES = join(REPO, 'policies.yaml');
-const MODULES_DIR = join(REPO, 'modules');
+const POLICIES = join(REPO, 'template', 'policies.yaml');
+const MODULES_DIR = join(REPO, 'template', 'modules');
 
 let scratch;
 beforeEach(() => {
@@ -57,7 +57,7 @@ const parseJson = (s) => {
 };
 
 describe('G1: generate --dry-run', () => {
-  const r = runCli(GEN_CLI, ['--dry-run']);
+  const r = runCli(GEN_CLI, ['--policies', POLICIES, '--dry-run']);
   const out = parseJson(r.stdout);
 
   it('exits 0', () => assert.equal(r.code, 0));

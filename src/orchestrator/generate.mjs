@@ -14,7 +14,7 @@
 // =============================================================================
 
 import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { readFileSync } from 'fs';
 import { parse } from 'yaml';
@@ -159,8 +159,8 @@ if (isMain) {
       policies = v.doc;
     }
 
-    // roadmap 索引需要运行时 clone 的绝对路径（本机 generate → 本机 install，路径即有效）
-    if (policies.meta) policies.meta.runtimeRoot = process.cwd();
+    // roadmap 索引绝对路径不变量：内容根 = manifest 所在目录（引擎 cwd 无关，天然支持内容库分离）
+    if (policies.meta) policies.meta.runtimeRoot = dirname(policiesPath);
 
     const r = await generate(policies, { dryRun });
     console.log(JSON.stringify({

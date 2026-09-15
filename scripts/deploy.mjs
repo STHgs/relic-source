@@ -24,7 +24,8 @@ import { existsSync, readFileSync } from 'fs';
 import { parse } from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(__dirname, '..');
+const __argContent = (() => { const i = process.argv.indexOf('--content'); return i >= 0 ? process.argv[i + 1] : null; })();
+const rootDir = __argContent ? resolve(__argContent) : resolve(__dirname, '..');  // --content 指向同步库（内容操作对象）
 
 import {
   hasRemote, getRemoteUrl, addRemote, createRepo,

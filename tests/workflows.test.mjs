@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
 
 const r = loadProfile({
-  manifestPath: resolve(REPO, 'policies.yaml'),
+  manifestPath: resolve(REPO, 'template', 'policies.yaml'),
   modulesDir: resolve(REPO, 'modules'),
 });
 const policies = r.policies;

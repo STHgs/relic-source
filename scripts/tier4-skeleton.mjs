@@ -23,7 +23,7 @@ const GOLDEN = resolve(REPO, 'tests/fixtures/golden-skeleton.md');
 
 const readGolden = () => readFileSync(GOLDEN, 'utf8');
 const renderReal = (policiesPath) => {
-  const r = loadProfile({ manifestPath: policiesPath ?? resolve(REPO, 'policies.yaml') });
+  const r = loadProfile({ manifestPath: policiesPath ?? resolve(REPO, 'template', 'policies.yaml') });
   if (!r.ok) throw new Error('loadProfile failed: ' + r.errors.join('; '));
   return renderAgentsMd(r.policies);
 };
@@ -59,8 +59,18 @@ if (!unique) failures.push('A: golden skeleton lines contain duplicates (ambiguo
 const renderNow = renderReal();
 
 if (args.includes('--sync-check')) {
-  // ---- sync 模式：对比 .last-sync 记录 ----
-  const statePath = resolve(REPO, '.last-sync');
+  // ---- sync 模式：对比内容库 .last-sync 记录（--content > config > template 回退） ----
+  let contentDir = resolve(REPO, 'template');
+  const ci = args.indexOf('--content');
+  if (ci >= 0 && args[ci + 1]) contentDir = resolve(args[ci + 1]);
+  else {
+    const cfgPath = resolve(REPO, 'relic.config.json');
+    if (existsSync(cfgPath)) {
+      try { contentDir = resolve(JSON.parse(readFileSync(cfgPath, 'utf8')).contentRepo); } catch { /* template */ }
+    }
+  }
+  const renderNow = renderReal(join(contentDir, 'policies.yaml'));
+  const statePath = join(contentDir, '.last-sync');
   let prevSkeletonSha = null, prevGoldenSha = null;
   if (existsSync(statePath)) {
     try {

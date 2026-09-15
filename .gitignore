@@ -18,3 +18,6 @@ generated/
 # Sync state (per-clone, untracked)
 .last-sync
 .relic-deploy
+
+# Per-machine identity registration (engine side)
+relic.config.json
