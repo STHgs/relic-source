@@ -145,6 +145,15 @@
   - E盘库归位 main@最新 + .relic-deploy 护栏（只读部署位）；systemd timer 单元已写入 ~/.config/systemd/user/（启用需沙箱外执行）
   - 修复：cli.test G2/G3/I3 时序脆弱模式（describe 体引用 beforeEach-scratch，多文件模式下竞态）
 
+**本轮（2026-09-15 下午，收尾轮）**：
+- 全量去硬约束落地（e33f6df）：全平台 route A、Tier2 哨兵翻转、现网 permission 清零（快照×2 可回滚）、净删 412 行
+- 三库文档完备化（8c562a1）：AGENTS.md §5/§6 重写（拆分后路径）、relic-sync README
+- GitHub 默认分支误指 master 修复→main；跨机/本机新 harness 部署指引输出（三条路径判定）
+- bootstrap 一键验证卡交付（用户自行验证）；mac+opencode 可行性审计（结论：开箱可用，唯一变量=mac 版 opencode 指令读取路径）
+- inject.mjs round-trip 扰动副作用入档（d9d157c，用户实测），根治方案排队首
+- test workflow 验证后删除（2551b3c，精准 edit 实践新约束）
+- **下轮方向（用户已定）：Windows 原生适配**——核心项：sync-core/tier4 去 sh -c（cmd/args 数组）、install-schedule 加 schtasks 分支、适配器路径 darwin/win32 分支、opencode Windows 指令路径确认
+
 **下轮该做**（架构已拆分：本库=引擎 relic-source；身份内容在 relic-sync 库）：
 - 日常改规则/人设：编辑 `~/.config/relic-sync/`（modules/ 或 policies.yaml）→ commit+push → 5 分钟全域热生效（急用手动 `npm run sync`）。
 - 引擎开发：在本 dev clone 开发；提交门=测试 fail 0 + tier4 PASS；**改渲染器必同提交 `--bump-golden`**（golden diff 即系统变更审查材料）。
