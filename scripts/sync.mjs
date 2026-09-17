@@ -8,7 +8,6 @@
 // 宿主调度器接入见 docs/SYNC.md（systemd / cron / Task Scheduler / launchd）。
 // 语义保证：工作区脏 / 分叉 / 哨兵缺失 → 退出码 1，绝不静默调和。
 // =============================================================================
-import { spawnSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -46,7 +45,7 @@ if (!existsSync(CONTENT_POLICIES)) {
 }
 
 // Windows 适配：数组化经 exec.mjs（win32 shell 解析；POSIX 行为不变）
-import { run as runExec } from '../src/core/exec.mjs';
+import { run as runExec, userHome } from '../src/core/exec.mjs';
 const exec = (cmd, cwd) => {
   const parts = cmd.split(' ');
   return runExec(parts[0], parts.slice(1), { cwd });
@@ -54,8 +53,16 @@ const exec = (cmd, cwd) => {
 
 const generateRun = () => new Promise((res) => {
   // generate 在引擎跑，内容来自内容库（--policies）；runtimeRoot=内容根（manifest 目录不变量）
-  const r = spawnSync('npm', ['run', 'generate', '--', '--policies', CONTENT_POLICIES], { cwd: REPO_ROOT, encoding: 'utf8' });
-  if (r.status !== 0) {
+  // win32 真机修复（2026-09-16）：
+  //   ① 经 exec.mjs run()——win32 走 shell 解析 npm.cmd（原裸 spawnSync('npm') 恒 ENOENT）；
+  //   ② 子进程 HOME 显式补 userHome()——schtasks/原生 PowerShell 无 HOME，而 generate CLI
+  //     的 home 默认取 process.env.HOME，缺省时 detect 全盲、sync 空转不写。
+  //   POSIX 行为不变（shell:false + HOME=HOME）。
+  const r = runExec('npm', ['run', 'generate', '--', '--policies', CONTENT_POLICIES], {
+    cwd: REPO_ROOT, encoding: 'utf8',
+    env: { ...process.env, GIT_ASKPASS: '', SSH_ASKPASS: '', GIT_TERMINAL_PROMPT: '0', HOME: userHome() },
+  });
+  if (!r.ok) {
     res({ ok: false, written: [], errors: [r.stderr || 'npm run generate failed'] });
     return;
   }

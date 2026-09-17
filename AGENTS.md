@@ -34,6 +34,7 @@
 - [x] 全量去硬约束（2026-09-15）：运行时 permission 注入全面退役——opencode/omo 适配器降级 route A（omo 成为显式 no-op，治理文本由 opencode AGENTS.md 统一送达）；骨架措辞重构（硬约束表→「治理约束（自律执行）」，ask/deny 语义自律化，风险分级中高风险改"直接发起+显式声明"）；Tier2 哨兵翻转为"配置不被触碰+治理文本送达"；cleanup-legacy-permissions 增 --include-primary 并清空现网全部注入（双快照可回滚）；284 tests 282 pass。
 - [x] 工作习惯系统 L1-L4（2026-09-15）：L1 声明层 personas（schema 增量 identity/language/verbosity/default，渲染「助手人设」数据段）；L2 会话内即时调整 + L3 本机学习库 ~/.config/relic-habits/learned.yaml（分型/去重/按价值落盘/50 条上限/25KB 预算）+ L4 habit-promotion 显式晋升工作流；「学习与适应」机制段入骨架（首次 golden bump 仪式实战）；调研 Claude Code auto memory/Cursor Rules/mem0/Letta 后吸收四项改进。**B 断言 v2 重设计**：v1"匹配骨架行不变性"被 persona 激活条件段误报实战证伪 → 改为"确定性守卫"（inputSig=内容commit+golden+渲染器源码，同输入必同输出）；tier4 移除同误报类的 HEAD~1 渲染对比。人设拟稿已部署 relic-sync（用户主权区可随时改）。
 - [x] 引擎/内容拆分（2026-09-15）：relic（→GitHub rename relic-source）= 纯引擎静态权威源（template/ 种子 + CI 防混入断言）；STHgs/relic-sync = 本人身份内容库（init-sync --import 自动创建，含 engine.lock）；sync 内容库发现链（--content>env>relic.config.json>约定）；runtimeRoot=manifest 目录不变量；bootstrap 一键入口（自检/init-sync/依赖/sync/调度器自动安装）冒烟绿；upgrade 慢道脚本就绪。方案 output/v7/split-plan.md。CI 调通顺带修复测试环境依赖（cli/cli-profile 自带 fake HOME、I3 模块副本动态化）——落实测试权威性=不依赖机器布局；gh token 补 workflow scope 后 workflow 方可推送。
+- [x] Windows 原生部署真机首验（2026-09-16）：win32 DSH 端到端打通（详见 §6 本轮）
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -149,7 +150,14 @@
   - E盘库归位 main@最新 + .relic-deploy 护栏（只读部署位）；systemd timer 单元已写入 ~/.config/systemd/user/（启用需沙箱外执行）
   - 修复：cli.test G2/G3/I3 时序脆弱模式（describe 体引用 beforeEach-scratch，多文件模式下竞态）
 
-**本轮（2026-09-15 下午，收尾轮）**：
+**本轮（2026-09-16，Windows 原生部署轮，DSH win32 会话执行）**：
+- win32 侧首次部署（同机 Windows 原生，非 WSL；部署位=E:\AIworkspace\relic-source@main 8c0dd13，serve C:\Users\宋浩天\.dsh）：gh 便携版设备码认证（token 入 GCM，repo+workflow）→ relic-sync clone 至 ~\.config\relic-sync → npm install → relic.config.json 显式 contentRepo → generate 真写 ~/.dsh/AGENTS.md（11018B，哨兵在）→ DSH 会话内 reconcile 注入验证通过
+- 引擎修复（本地补丁未提交，见 E:\AIworkspace\relic-windows-native-sync.patch）：scripts/sync.mjs generateRun 裸 spawnSync('npm') win32 恒 ENOENT → 改 exec.mjs run()（shell 解析 npm.cmd）+ 子进程 HOME 显式 userHome()（schtasks/原生 PowerShell 无 HOME → generate CLI home 默认 undefined → detect 全盲、sync 空转不写）
+- 同类待修移交 dev 侧：bootstrap.mjs run() 同为裸 spawnSync('npm')（win32 同病）；`npm run generate` CLI 直跑在无 HOME 环境同样空转（generate.mjs home 默认改 userHome() 会与 cli.test fake HOME 注入冲突，需 dev 侧权衡）
+- win32 测试基线：npm test 289 = 278 pass / 9 fail / 2 skip；9 fail 全为 POSIX 夹具（exec 系列 HOME 断言、rm、/home/u 路径），环境性非引擎缺陷；win 达不成提交门（fail 0）→ 补丁留脏树待 dev clone 收编
+- schtasks relic-sync（每 5 分钟）注册 + /Run 真跑验证：Last Result=0，.last-sync 时间同步更新，npm/git/GCM 在任务上下文全通；win 侧为首个真跑 5min timer 的部署位，AGENTS.md.bak.* 每轮累积（~11KB×288/日），rotation 列候选
+
+**上轮（2026-09-15 下午，收尾轮）**：
 - 全量去硬约束落地（e33f6df）：全平台 route A、Tier2 哨兵翻转、现网 permission 清零（快照×2 可回滚）、净删 412 行
 - 三库文档完备化（8c562a1）：AGENTS.md §5/§6 重写（拆分后路径）、relic-sync README
 - GitHub 默认分支误指 master 修复→main；跨机/本机新 harness 部署指引输出（三条路径判定）
@@ -164,7 +172,8 @@
 - 引擎升级（各部署机）：`npm run upgrade -- --tag <t>`（慢道，更新 engine.lock）。
 - 新机器/新用户接入：`git clone https://github.com/STHgs/relic-source.git && cd relic-source && npm run bootstrap`。
 - 本机布局：`~/.config/relic`=引擎(dev) `~/.config/relic-sync`=身份内容 `~/.config/relic-habits/learned.yaml`=本机学习库（不入 git）。
-- 候选队列：**inject.mjs round-trip-safe 拼接模式**（apply 以 yamlSnippet 字符串插入锚点，保注释保引号，apply 后 re-parse 验证）/ 内容库轻量 CI / Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（搁置中）/ 工作习惯 v2（多人格切换、跨机记忆层）。
+- 候选队列：**inject.mjs round-trip-safe 拼接模式**（apply 以 yamlSnippet 字符串插入锚点，保注释保引号，apply 后 re-parse 验证）/ 内容库轻量 CI / Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（win 部署已通，补丁待收编）/ 备份 rotation（部署位每 5min 一份 .bak）/ 工作习惯 v2（多人格切换、跨机记忆层）。
+- Windows 补丁收编（本轮遗留）：WSL dev clone `git apply /mnt/e/AIworkspace/relic-windows-native-sync.patch` → npm test fail 0 → commit+push → win 部署位 `git pull` 树净（解锁 upgrade 慢道）；bootstrap.mjs / generate CLI 直跑两个 win32 同类待修项排期。
 - 任何新阶段先出方案（plan-then-build 硬规则）。历史已完成项见 §2。
 
 **待澄清**（迁移全落地）：
