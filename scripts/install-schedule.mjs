@@ -8,7 +8,7 @@
 // 幂等：已有条目即跳过。
 // =============================================================================
 import { spawnSync } from 'child_process';
-import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { userHome } from '../src/core/exec.mjs';
@@ -24,15 +24,42 @@ const die = (m) => { console.error('[schedule] ' + m); process.exit(1); };
 const PLATFORM = process.platform;
 
 if (PLATFORM === 'win32') {
-  // ─── Windows：schtasks ─────────────────────────────────────────────
+  // ─── Windows：schtasks（每 5 分钟）────────────────────────────────
+  // v2（2026-09-21）：弹窗事故整改——cmd /c 直跑会以 InteractiveToken 弹可见
+  // 控制台（标题 "npm sync"，每 5 分钟一次）。改为 vbs 静默包装：
+  //   ① wscript 为 GUI 子系统宿主，Shell.Run(...,0) 隐藏子控制台；
+  //   ② DSH 存活门控（方案 A）：探测 dsh 进程不在则静默跳过 sync
+  //     （DSH 关闭时同步无消费者），判定记 %LOCALAPPDATA%\relic\sync-gate.log。
+  // 部署形态：vbs 复制到 %LOCALAPPDATA%\relic\sync-silent.vbs（__REPO__ 占位符
+  // 换本机引擎路径），任务 /TR 指向该副本——git pull 永不覆盖在跑包装器，
+  // 仓库内 scripts/sync-silent.vbs 保持可移植原样。
   const q = run('schtasks', ['/Query', '/TN', 'relic-sync']);
-  if (q.ok) { console.log('[schedule] ✅ schtasks 已有 relic-sync 任务'); process.exit(0); }
-  // /TR 值含空格需引号；cmd /c 链式进入仓库目录再 npm run sync
-  const tr = `cmd /c "cd /d ${REPO} && npm run sync"`;
-  const ins = run('schtasks', ['/Create', '/TN', 'relic-sync', '/SC', 'MINUTE', '/MO', '5', '/TR', tr]);
-  if (ins.ok) console.log('[schedule] ✅ schtasks 已创建（每 5 分钟，任务名 relic-sync）');
-  else die('schtasks 创建失败：' + ins.out + '\n  手动等价：schtasks /Create /TN relic-sync /SC MINUTE /MO 5 /TR "' + tr + '"');
-  process.exit(ins.ok ? 0 : 1);
+  const workDir = join(HOME, 'AppData', 'Local', 'relic');
+  const vbsSrc = join(REPO, 'scripts', 'sync-silent.vbs');
+  const vbsDst = join(workDir, 'sync-silent.vbs');
+  const tr = `wscript.exe "${vbsDst}"`;
+  if (!q.ok) {
+    mkdirSync(workDir, { recursive: true });
+    const vbsBody = readFileSync(vbsSrc, 'utf8').replaceAll('__REPO__', REPO);
+    writeFileSync(vbsDst, vbsBody);
+    const ins = run('schtasks', ['/Create', '/TN', 'relic-sync', '/SC', 'MINUTE', '/MO', '5', '/TR', tr]);
+    if (ins.ok) console.log('[schedule] ✅ schtasks 已创建（每 5 分钟，静默包装 ' + vbsDst + '）');
+    else die('schtasks 创建失败：' + ins.out + '\n  手动等价：schtasks /Create /TN relic-sync /SC MINUTE /MO 5 /TR "' + tr + '"');
+    process.exit(ins.ok ? 0 : 1);
+  }
+  // 已有任务：对齐到静默包装（升级路径——旧 /TR 是 cmd 直弹窗形态）
+  const cur = run('schtasks', ['/Query', '/TN', 'relic-sync', '/V', '/FO', 'LIST']);
+  if (!cur.out.includes(vbsDst)) {
+    mkdirSync(workDir, { recursive: true });
+    const vbsBody = readFileSync(vbsSrc, 'utf8').replaceAll('__REPO__', REPO);
+    writeFileSync(vbsDst, vbsBody);
+    const chg = run('schtasks', ['/Change', '/TN', 'relic-sync', '/TR', tr]);
+    if (chg.ok) console.log('[schedule] ✅ 已迁移到静默包装（旧 /TR 弹窗形态退役）');
+    else die('schtasks /Change 失败：' + chg.out + '\n  手动等价：schtasks /Change /TN relic-sync /TR "' + tr + '"');
+  } else {
+    console.log('[schedule] ✅ schtasks 已是静默包装形态');
+  }
+  process.exit(0);
 }
 
 if (PLATFORM === 'darwin') {

@@ -156,6 +156,7 @@
 - 同类待修移交 dev 侧：bootstrap.mjs run() 同为裸 spawnSync('npm')（win32 同病）；`npm run generate` CLI 直跑在无 HOME 环境同样空转（generate.mjs home 默认改 userHome() 会与 cli.test fake HOME 注入冲突，需 dev 侧权衡）
 - win32 测试基线：npm test 289 = 278 pass / 9 fail / 2 skip；9 fail 全为 POSIX 夹具（exec 系列 HOME 断言、rm、/home/u 路径），环境性非引擎缺陷；win 达不成提交门（fail 0）→ 补丁留脏树待 dev clone 收编
 - schtasks relic-sync（每 5 分钟）注册 + /Run 真跑验证：Last Result=0，.last-sync 时间同步更新，npm/git/GCM 在任务上下文全通；win 侧为首个真跑 5min timer 的部署位，AGENTS.md.bak.* 每轮累积（~11KB×288/日），rotation 列候选
+- 弹窗事故整改（2026-09-21，用户拍板方案 A）：schtasks InteractiveToken 下 cmd /c 直跑每 5 分钟弹可见控制台（标题 "npm sync"）→ sync-silent.vbs 静默包装（wscript GUI 宿主 Run(...,0)）+ DSH 存活门控（dsh 进程不在则静默跳过，DSH 关闭=同步无消费者）；工作副本在 %LOCALAPPDATA%\relic\（git 不跟踪），/TR 已指向它；install-schedule.mjs win32 分支 v2（幂等双路径：无任务建/旧形态迁移）；真机验证 16:30-16:45 四轮无弹窗、门控日志 action=run、Last Result=0；vbs 强制纯 ASCII（CJK Windows wscript 读无 BOM UTF-8 当 GBK，中文注释曾致 Option Explicit 下变量错位）；win32 补丁（sync.mjs 修复）已于 a5cc0c4 经 WSL dev clone 收编进 main，弹窗整改同轮自 win 侧直接提交推送
 
 **上轮（2026-09-15 下午，收尾轮）**：
 - 全量去硬约束落地（e33f6df）：全平台 route A、Tier2 哨兵翻转、现网 permission 清零（快照×2 可回滚）、净删 412 行
@@ -172,8 +173,8 @@
 - 引擎升级（各部署机）：`npm run upgrade -- --tag <t>`（慢道，更新 engine.lock）。
 - 新机器/新用户接入：`git clone https://github.com/STHgs/relic-source.git && cd relic-source && npm run bootstrap`。
 - 本机布局：`~/.config/relic`=引擎(dev) `~/.config/relic-sync`=身份内容 `~/.config/relic-habits/learned.yaml`=本机学习库（不入 git）。
-- 候选队列：**inject.mjs round-trip-safe 拼接模式**（apply 以 yamlSnippet 字符串插入锚点，保注释保引号，apply 后 re-parse 验证）/ 内容库轻量 CI / Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（win 部署已通，补丁待收编）/ 备份 rotation（部署位每 5min 一份 .bak）/ 工作习惯 v2（多人格切换、跨机记忆层）。
-- Windows 补丁收编（本轮遗留）：WSL dev clone `git apply /mnt/e/AIworkspace/relic-windows-native-sync.patch` → npm test fail 0 → commit+push → win 部署位 `git pull` 树净（解锁 upgrade 慢道）；bootstrap.mjs / generate CLI 直跑两个 win32 同类待修项排期。
+- 候选队列：**inject.mjs round-trip-safe 拼接模式**（apply 以 yamlSnippet 字符串插入锚点，保注释保引号，apply 后 re-parse 验证）/ 内容库轻量 CI / Codex-Cursor 适配器（第二平台待拍板）/ Windows 原生适配（sync.mjs+调度器已收编 main；bootstrap.mjs 裸 spawnSync 待修）/ 备份 rotation（部署位每 5min 一份 .bak）/ 工作习惯 v2（多人格切换、跨机记忆层）。
+- ~~Windows 补丁收编~~：sync.mjs 修复已由 WSL dev clone 收编（a5cc0c4，2026-09-17）；弹窗整改（install-schedule v2 + sync-silent.vbs）同轮自 win 侧提交推送——收编闭环，遗留待修仅 bootstrap.mjs / generate CLI 直跑两项排期。
 - 任何新阶段先出方案（plan-then-build 硬规则）。历史已完成项见 §2。
 
 **待澄清**（迁移全落地）：
