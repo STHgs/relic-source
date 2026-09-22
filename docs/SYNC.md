@@ -83,6 +83,17 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 - 生成产物不入库（Q5）：每次 sync 在本地 generate，产物 = 派生物
 - 测试权威性（v5 计划原则 3）：验收以 `npm test`（L1）+ Tier1/2（L2）+ Tier3 sync.test（L3）为准；单平台行为（如 DSH 热注入）仅为冒烟参考
 
+## 通用同步门控（2026-09-22，全平台统一）
+
+`npm run sync` 的**第 0 步**（在脏拒之前）：仅**定时器上下文**（无 TTY）判定
+"任一 harness 进程在场才执行"——dsh/opencode/omo 全不在场 = 无消费者 = 静默跳过
+（exit 0 + gate 日志一条）。**手动调用永远全量**（isTTY 直通）；`--no-gate` 可强制绕过。
+
+- 核心模块：`src/core/gate.mjs`（进程签名表 + 平台探测 posix=pgrep / win=wmic + 日志）
+- 日志：posix `~/.local/state/relic/sync-gate.log` / win `%LOCALAPPDATA%\relic\sync-gate.log`
+- 调度器只管定时；win vbs 只管静默（门控已在 sync 内部，fdaf102 的 vbs 门控段已卸载）
+- 探测失败保守放行（宁可空转不误跳同步）
+
 ## 骨架门禁（Tier4，2026-09-14）
 
 `npm run sync` 在 generate 之前运行骨架门禁；GitHub CI 在 push 后独立复核：

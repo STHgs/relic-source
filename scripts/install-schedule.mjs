@@ -25,14 +25,11 @@ const PLATFORM = process.platform;
 
 if (PLATFORM === 'win32') {
   // ─── Windows：schtasks（每 5 分钟）────────────────────────────────
-  // v2（2026-09-21）：弹窗事故整改——cmd /c 直跑会以 InteractiveToken 弹可见
-  // 控制台（标题 "npm sync"，每 5 分钟一次）。改为 vbs 静默包装：
-  //   ① wscript 为 GUI 子系统宿主，Shell.Run(...,0) 隐藏子控制台；
-  //   ② DSH 存活门控（方案 A）：探测 dsh 进程不在则静默跳过 sync
-  //     （DSH 关闭时同步无消费者），判定记 %LOCALAPPDATA%\relic\sync-gate.log。
-  // 部署形态：vbs 复制到 %LOCALAPPDATA%\relic\sync-silent.vbs（__REPO__ 占位符
-  // 换本机引擎路径），任务 /TR 指向该副本——git pull 永不覆盖在跑包装器，
-  // 仓库内 scripts/sync-silent.vbs 保持可移植原样。
+  // v2（2026-09-21）→v3（2026-09-22）：弹窗整改 vbs 静默包装保留；DSH 存活
+  // 门控已迁入 scripts/sync.mjs 第 0 步（全平台通用，任一 harness 消费者
+  // 探测 + isTTY 手动直通），vbs 卸门控只管静默。部署形态不变：vbs 复制到
+  // %LOCALAPPDATA%\relic\sync-silent.vbs（__REPO__ 占位符换本机引擎路径），
+  // /TR 指向副本——git pull 永不覆盖在跑包装器。
   const q = run('schtasks', ['/Query', '/TN', 'relic-sync']);
   const workDir = join(HOME, 'AppData', 'Local', 'relic');
   const vbsSrc = join(REPO, 'scripts', 'sync-silent.vbs');

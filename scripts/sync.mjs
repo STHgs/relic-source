@@ -37,6 +37,20 @@ function discoverContentRepo() {
 }
 const CONTENT_REPO = discoverContentRepo();
 const CONTENT_POLICIES = join(CONTENT_REPO, 'policies.yaml');
+
+// ---- 通用同步门控（第 0 步，2026-09-22 全平台统一）----
+// 语义：仅定时器上下文（无 TTY）判"无 harness 消费者则跳过"；手动调用永全量。
+// 历史：门控原在 win vbs 包装层（fdaf102），本迁移为 sync 内置——任一 harness 通用。
+import { gateCheck, appendGateLog } from '../src/core/gate.mjs';
+if (!process.stdout.isTTY && !process.argv.includes('--no-gate')) {
+  const gate = gateCheck();
+  if (!gate.ok) {
+    appendGateLog({ action: 'skip', reason: gate.reason, invokedBy: 'timer' });
+    console.log(`[relic] gate: ${gate.reason} — sync skipped`);
+    process.exit(0);  // 门控跳过=正常退出（非失败）
+  }
+  appendGateLog({ action: 'run', reason: gate.reason, invokedBy: 'timer' });
+}
 if (!existsSync(CONTENT_POLICIES)) {
   console.error(`[relic] 内容库不存在：${CONTENT_POLICIES}
   首次部署请运行：npm run init-sync        （新建身份）
