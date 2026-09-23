@@ -168,3 +168,19 @@ export function parseJsonc(text) {
 export function readJsonc(absPath) {
   return parseJsonc(readFileSync(absPath, 'utf-8'));
 }
+
+// ─── 内容比对（A1：源头消除冗余备份）──────────────────────────────────
+// install 前比对"当前文件内容 == 即将写入的内容"；相同则跳过 backup+write，
+// 从源头消除"内容未变也产生 .bak"的冗余。文件不存在 → 返回 false（需写）。
+
+/**
+ * 判断目标文件内容是否与 newContent 完全相同。
+ * @param {string} absPath      目标文件绝对路径
+ * @param {string} newContent  即将写入的新内容
+ * @returns {boolean}  true=内容相同可跳过写入；false=文件不存在或内容不同需写入
+ */
+export function isContentUnchanged(absPath, newContent) {
+  if (!existsSync(absPath)) return false;
+  const current = readFileSync(absPath, 'utf8');
+  return current === newContent;
+}

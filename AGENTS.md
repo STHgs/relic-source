@@ -37,6 +37,7 @@
 - [x] harness 位置四层解析链（2026-09-23）：paths.mjs 升级为声明（内容库 harness-paths.json）> 标准环境变量（DSH_HOME/OPENCODE_CONFIG/XDG_CONFIG_HOME）> 约定兜底；适配器 detect/install 按候选序探测；env 可注入（测试环境无关）；调研 DSH/OpenCode/Claude Code/chezmoi/XDG 对齐业界共识（无一家做自主扫描）。XDG 化实测纠正：opencode=XDG 解析、omo=点目录（真机事实）。301 tests 299 pass。
 - [x] 通用同步门控（2026-09-22）：sync 第 0 步统一全平台——任一 harness 消费者探测（dsh/opencode/omo 签名表，posix=pgrep win=wmic），定时器上下文（无 TTY）无消费者则静默跳过+日志；手动 isTTY 直通 + --no-gate；win vbs 卸门控只管静默（fdaf102 门控段迁入 sync）。298 tests 296 pass。
 - [x] Windows 原生部署真机首验（2026-09-16）：win32 DSH 端到端打通（详见 §6 本轮）
+- [x] 备份冗余治理（2026-09-23）：A1 install 内容比对跳过（base.mjs +isContentUnchanged / opencode+dsh install 短路）+ B1 cleanup-backups.mjs 历史去重脚本（按 sha256 去重，保留 N 个变更点）；312 tests 310 pass 0 fail 2 skip，tier4 PASS；现网 1007→46 .bak（删 961 冗余，释放 ~7.5MB）。方案 output/v8/backup-rotation-plan.md
 - [ ] 人设功能 / Codex-Cursor 适配器（待用户启动）
 
 ## 3. 关键决策
@@ -153,7 +154,14 @@
   - E盘库归位 main@最新 + .relic-deploy 护栏（只读部署位）；systemd timer 单元已写入 ~/.config/systemd/user/（启用需沙箱外执行）
   - 修复：cli.test G2/G3/I3 时序脆弱模式（describe 体引用 beforeEach-scratch，多文件模式下竞态）
 
-**本轮（2026-09-16，Windows 原生部署轮，DSH win32 会话执行）**：
+**本轮（2026-09-23，备份冗余治理）**：
+- 问题：sync 每 5 分钟 generate 真写 AGENTS.md，install 无条件 backup → 内容零变更也产生 .bak；WSL 端实测 1007 个 .bak（8.4MB），win 端同机制
+- A1（源头治）：base.mjs +isContentUnchanged() helper（readFileSync+严格相等）；opencode.mjs+dsh.mjs install 开头加短路（内容相同→skip backup+write，skipped.push('unchanged')）；不碰 renderer→不需要 bump golden
+- B1（历史清）：scripts/cleanup-backups.mjs——按 sha256 去重（相邻相同只留最新），保留最近 N 个变更点（默认 10），--dry-run/--keep/--path，幂等；package.json +cleanup-backups 入口
+- 测试：base.test.mjs +isContentUnchanged 4 用例；adapters.test.mjs +A7 unchanged→skip 6 用例（opencode+dsh 各 same/different）；cleanup-backups.test.mjs 6 用例（去重/keep/idempotent/dry-run/multi-file）；312 tests 310 pass 0 fail 2 skip；tier4 PASS
+- 现网验证：cleanup-backups --dry-run 扫描 1007 个 .bak→keep 46 删 961；真跑后 1007→46（释放 ~7.5MB）
+
+**上轮（2026-09-16，Windows 原生部署轮，DSH win32 会话执行）**：
 - win32 侧首次部署（同机 Windows 原生，非 WSL；部署位=E:\AIworkspace\relic-source@main 8c0dd13，serve C:\Users\宋浩天\.dsh）：gh 便携版设备码认证（token 入 GCM，repo+workflow）→ relic-sync clone 至 ~\.config\relic-sync → npm install → relic.config.json 显式 contentRepo → generate 真写 ~/.dsh/AGENTS.md（11018B，哨兵在）→ DSH 会话内 reconcile 注入验证通过
 - 引擎修复（本地补丁未提交，见 E:\AIworkspace\relic-windows-native-sync.patch）：scripts/sync.mjs generateRun 裸 spawnSync('npm') win32 恒 ENOENT → 改 exec.mjs run()（shell 解析 npm.cmd）+ 子进程 HOME 显式 userHome()（schtasks/原生 PowerShell 无 HOME → generate CLI home 默认 undefined → detect 全盲、sync 空转不写）
 - 同类待修移交 dev 侧：bootstrap.mjs run() 同为裸 spawnSync('npm')（win32 同病）；`npm run generate` CLI 直跑在无 HOME 环境同样空转（generate.mjs home 默认改 userHome() 会与 cli.test fake HOME 注入冲突，需 dev 侧权衡）

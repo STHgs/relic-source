@@ -13,7 +13,7 @@
 import { existsSync, lstatSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { renderAgentsMd } from '../render/agents-md.mjs';
-import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { backup, writeWithHeader, emptyReport, isContentUnchanged } from './base.mjs';
 import { platformPaths, firstExisting } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
@@ -49,6 +49,11 @@ export default {
       return report;
     }
     try {
+      // A1：内容比对短路——内容未变则跳过 backup+write（消除冗余 .bak）
+      if (isContentUnchanged(agentsMdPath, fileMap['AGENTS.md'])) {
+        report.skipped.push('opencode (unchanged)');
+        return report;
+      }
       const bak = backup(agentsMdPath, opts);
       if (bak) report.backups.push(bak);
       // 历史现场曾把 AGENTS.md 软链到 generated/ 缓存——写前先摘除 symlink
