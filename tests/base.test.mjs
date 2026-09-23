@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { backup, writeWithHeader, emptyReport } from '../src/adapters/base.mjs';
+import { backup, writeWithHeader, emptyReport, isContentUnchanged } from '../src/adapters/base.mjs';
 
 let scratch;
 beforeEach(() => {
@@ -75,5 +75,26 @@ describe('writeWithHeader()', () => {
 describe('emptyReport()', () => {
   it('returns a clean ok report', () => {
     assert.deepEqual(emptyReport(), { ok: true, written: [], backups: [], skipped: [], errors: [] });
+  });
+});
+
+describe('isContentUnchanged()', () => {
+  it('returns true when file content equals newContent', () => {
+    const p = join(scratch, 'cfg.md');
+    writeFileSync(p, 'IDENTICAL');
+    assert.equal(isContentUnchanged(p, 'IDENTICAL'), true);
+  });
+  it('returns false when content differs', () => {
+    const p = join(scratch, 'cfg.md');
+    writeFileSync(p, 'OLD');
+    assert.equal(isContentUnchanged(p, 'NEW'), false);
+  });
+  it('returns false when file does not exist', () => {
+    assert.equal(isContentUnchanged(join(scratch, 'nope'), 'anything'), false);
+  });
+  it('returns true for empty string match', () => {
+    const p = join(scratch, 'empty.md');
+    writeFileSync(p, '');
+    assert.equal(isContentUnchanged(p, ''), true);
   });
 });

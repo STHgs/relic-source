@@ -17,7 +17,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { renderAgentsMd } from '../render/agents-md.mjs';
-import { backup, writeWithHeader, emptyReport } from './base.mjs';
+import { backup, writeWithHeader, emptyReport, isContentUnchanged } from './base.mjs';
 import { platformPaths } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
@@ -47,6 +47,11 @@ export default {
       return report;
     }
     try {
+      // A1：内容比对短路——内容未变则跳过 backup+write（消除冗余 .bak）
+      if (isContentUnchanged(agentsMdPath, fileMap['AGENTS.md'])) {
+        report.skipped.push('dsh (unchanged)');
+        return report;
+      }
       const bak = backup(agentsMdPath, opts);
       if (bak) report.backups.push(bak);
       writeWithHeader(agentsMdPath, fileMap['AGENTS.md'], { header: '' });

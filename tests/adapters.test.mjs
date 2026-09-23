@@ -9,12 +9,13 @@
 // A5: round-trip 稳定——generate(parse(stringify(generate(p)))) 字节一致
 // =============================================================================
 
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'fs';
+import { readFileSync, mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve, join } from 'path';
 import { parse, stringify } from 'yaml';
+import { tmpdir } from 'os';
 import { createValidator } from '../src/core/validator.mjs';
 import opencodeAdapter from '../src/adapters/opencode.mjs';
 import omoAdapter from '../src/adapters/omo.mjs';
@@ -159,5 +160,66 @@ describe('A6d: dsh adapter.install() dryRun', () => {
     const r = dshAdapter.install({}, { home, dryRun: true });
     assert.equal(r.written.length, 0);
     assert.ok(r.skipped.length > 0);
+  });
+});
+
+// ─── A1: content-equality short-circuit (unchanged → skip) ───────────────
+// 验证内容未变时不产生 .bak、不写盘——源头消除冗余备份。
+describe('A7: install unchanged → skip (A1 content-equality)', () => {
+  let scratch;
+  beforeEach(() => { scratch = mkdtempSync(join(tmpdir(), 'relic-a1-')); });
+  afterEach(() => { rmSync(scratch, { recursive: true, force: true }); });
+
+  it('opencode: same content → skipped, no .bak, no written', () => {
+    const ocDir = join(scratch, '.config', 'opencode');
+    mkdirSync(ocDir, { recursive: true });
+    const agentsMdPath = join(ocDir, 'AGENTS.md');
+    const content = '# governance v1';
+    writeFileSync(agentsMdPath, content, 'utf8');
+
+    const r = opencodeAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false });
+    assert.equal(r.written.length, 0);
+    assert.equal(r.backups.length, 0);
+    assert.ok(r.skipped.some((x) => x.includes('unchanged')), `expected unchanged in skipped: ${r.skipped}`);
+    // no .bak files created
+    const baks = readdirSync(ocDir).filter((f) => f.includes('.bak.'));
+    assert.equal(baks.length, 0);
+  });
+
+  it('opencode: different content → written + backup (normal path)', () => {
+    const ocDir = join(scratch, '.config', 'opencode');
+    mkdirSync(ocDir, { recursive: true });
+    const agentsMdPath = join(ocDir, 'AGENTS.md');
+    writeFileSync(agentsMdPath, '# old', 'utf8');
+
+    const r = opencodeAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false });
+    assert.equal(r.written.length, 1);
+    assert.equal(r.backups.length, 1);
+  });
+
+  it('dsh: same content → skipped, no .bak, no written', () => {
+    const dshDir = join(scratch, '.dsh');
+    mkdirSync(dshDir, { recursive: true });
+    const agentsMdPath = join(dshDir, 'AGENTS.md');
+    const content = '# governance v1';
+    writeFileSync(agentsMdPath, content, 'utf8');
+
+    const r = dshAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false });
+    assert.equal(r.written.length, 0);
+    assert.equal(r.backups.length, 0);
+    assert.ok(r.skipped.some((x) => x.includes('unchanged')), `expected unchanged in skipped: ${r.skipped}`);
+    const baks = readdirSync(dshDir).filter((f) => f.includes('.bak.'));
+    assert.equal(baks.length, 0);
+  });
+
+  it('dsh: different content → written + backup (normal path)', () => {
+    const dshDir = join(scratch, '.dsh');
+    mkdirSync(dshDir, { recursive: true });
+    const agentsMdPath = join(dshDir, 'AGENTS.md');
+    writeFileSync(agentsMdPath, '# old', 'utf8');
+
+    const r = dshAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false });
+    assert.equal(r.written.length, 1);
+    assert.equal(r.backups.length, 1);
   });
 });

@@ -15,7 +15,8 @@
     "init-sync": "node scripts/init-sync.mjs",
     "install-schedule": "node scripts/install-schedule.mjs",
     "bootstrap": "node scripts/bootstrap.mjs",
-    "upgrade": "node scripts/upgrade.mjs"
+    "upgrade": "node scripts/upgrade.mjs",
+    "cleanup-backups": "node scripts/cleanup-backups.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",
