@@ -43,7 +43,7 @@ const runCli = (cli, args, opts = {}) => {
   const r = spawnSync(process.execPath, [cli, ...args], {
     encoding: 'utf-8',
     cwd: opts.cwd || REPO,
-    env: { ...process.env, HOME: FAKE_HOME, ...(opts.env || {}) },
+    env: { ...process.env, HOME: FAKE_HOME, XDG_CONFIG_HOME: '', DSH_HOME: '', OPENCODE_CONFIG: '', ...(opts.env || {}) },
   });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 };
@@ -115,7 +115,8 @@ describe('I6: inject --module sudo-safety --apply (isolated)', () => {
       action: 'ask',
     };
     const r = runCli(INJECT_CLI, ['--type=permission', '--module', 'sudo-safety', '--policies', isoManifest, '--apply', JSON.stringify(rule)], {
-      env: { HOME: join(scratch, 'fake-home') },
+      // env 隔离：HOME 假 + DSH_HOME/XDG 清空（真实 DSH_HOME 会劫持候选序导致写真实 ~/.dsh）
+      env: { HOME: join(scratch, 'fake-home'), DSH_HOME: '', XDG_CONFIG_HOME: '', OPENCODE_CONFIG: '' },
     });
     const out = parseJson(r.stdout);
     assert.equal(r.code, 0, `stdout: ${r.stdout}\nstderr: ${r.stderr}`);

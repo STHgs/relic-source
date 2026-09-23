@@ -46,7 +46,7 @@ const runCli = (cli, args, opts = {}) => {
   const r = spawnSync(process.execPath, [cli, ...args], {
     encoding: 'utf-8',
     cwd: opts.cwd || REPO,
-    env: { ...process.env, HOME: FAKE_HOME, ...(opts.env || {}) },
+    env: { ...process.env, HOME: FAKE_HOME, XDG_CONFIG_HOME: '', DSH_HOME: '', OPENCODE_CONFIG: '', ...(opts.env || {}) },
   });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 };
