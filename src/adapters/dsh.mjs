@@ -38,7 +38,8 @@ export default {
     const report = emptyReport();
     const home = opts.home;
     // 安装跟随已存在目录（用户自定义优先）；全新安装写首个候选
-    const candidates = platformPaths(home).dsh;
+    // env 注入对称（同 detect）：测试可传 opts.env:{} 隔离真实环境
+    const candidates = platformPaths(home, { env: opts.env ?? process.env }).dsh;
     const dshDir = firstExisting(candidates, existsSync) ?? candidates[0];
     const agentsMdPath = join(dshDir, 'AGENTS.md');
 

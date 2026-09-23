@@ -177,7 +177,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const content = '# governance v1';
     writeFileSync(agentsMdPath, content, 'utf8');
 
-    const r = opencodeAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false });
+    const r = opencodeAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false, env: {} });
     assert.equal(r.written.length, 0);
     assert.equal(r.backups.length, 0);
     assert.ok(r.skipped.some((x) => x.includes('unchanged')), `expected unchanged in skipped: ${r.skipped}`);
@@ -192,7 +192,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const agentsMdPath = join(ocDir, 'AGENTS.md');
     writeFileSync(agentsMdPath, '# old', 'utf8');
 
-    const r = opencodeAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false });
+    const r = opencodeAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false, env: {} });
     assert.equal(r.written.length, 1);
     assert.equal(r.backups.length, 1);
   });
@@ -204,7 +204,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const content = '# governance v1';
     writeFileSync(agentsMdPath, content, 'utf8');
 
-    const r = dshAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false });
+    const r = dshAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false, env: {} });
     assert.equal(r.written.length, 0);
     assert.equal(r.backups.length, 0);
     assert.ok(r.skipped.some((x) => x.includes('unchanged')), `expected unchanged in skipped: ${r.skipped}`);
@@ -218,7 +218,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const agentsMdPath = join(dshDir, 'AGENTS.md');
     writeFileSync(agentsMdPath, '# old', 'utf8');
 
-    const r = dshAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false });
+    const r = dshAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false, env: {} });
     assert.equal(r.written.length, 1);
     assert.equal(r.backups.length, 1);
   });

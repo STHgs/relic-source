@@ -33,8 +33,8 @@ export default {
   install(fileMap, opts) {
     const report = emptyReport();
     const home = opts.home;
-    // install 同样双路径：优先已存在目录；全新安装写第一个候选
-    const dirs = platformPaths(home).opencode;
+    // install 同样按候选序：优先已存在目录；全新安装写第一个候选（env 注入对称）
+    const dirs = platformPaths(home, { env: opts.env ?? process.env }).opencode;
     const target = firstExisting(dirs, (d) => existsSync(join(d, 'opencode.jsonc')))
       ?? firstExisting(dirs, existsSync)
       ?? dirs[0];
