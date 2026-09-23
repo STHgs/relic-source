@@ -60,6 +60,7 @@ describe('O1: all 3 platforms fake-present, dryRun → no writes, no errors', ()
       home: env.home,
       dryRun: true,
       existsSync: env.existsSync,
+      env: env.env,  // 干净 env 透传（CI runner 环境隔离）
     });
     assert.equal(r.ok, true);
     assert.equal(r.report.errors.length, 0);
@@ -81,6 +82,7 @@ describe('O2: no platform present → skipped lists all 3, written:[]', () => {
       home: env.home,
       dryRun: false,  // 即使非 dryRun，没检测到也不写
       existsSync: env.existsSync,
+      env: env.env,
     });
     assert.equal(r.ok, true);
     assert.equal(r.report.written.length, 0);
