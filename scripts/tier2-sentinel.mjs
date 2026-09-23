@@ -120,7 +120,7 @@ export async function runTier2Sentinel(opts = {}) {
     result.checks.push({ name: 'policies validation', pass: true });
 
     // Generate + install (real install, not dryRun)
-    const g = await generate(v.doc, { home: scratch, dryRun: false });
+    const g = await generate(v.doc, { home: scratch, dryRun: false, env: {} })  // env:{} 隔离（CI runner XDG/DSH_HOME 泄漏）;
     if (!g.ok) {
       result.pass = false;
       result.failures.push(`generate/install failed: ${g.report.errors.join('; ')}`);

@@ -49,7 +49,7 @@ const makeEnv = (present) => {
   if (present.omo) paths.add(join(home, '.omo', 'omo.jsonc'));
   if (present.claude) paths.add(join(home, '.claude'));
   if (present.dsh) paths.add(join(home, '.dsh'));
-  return { home, existsSync: (p) => paths.has(p) };
+  return { home, env: {}, existsSync: (p) => paths.has(p) };  // env:{} 隔离真实 DSH_HOME/XDG 泄漏（CI runner XDG 劫持候选序）
 };
 
 describe('O1: all 3 platforms fake-present, dryRun → no writes, no errors', () => {
