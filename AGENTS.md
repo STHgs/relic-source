@@ -155,6 +155,14 @@
   - E盘库归位 main@最新 + .relic-deploy 护栏（只读部署位）；systemd timer 单元已写入 ~/.config/systemd/user/（启用需沙箱外执行）
   - 修复：cli.test G2/G3/I3 时序脆弱模式（describe 体引用 beforeEach-scratch，多文件模式下竞态）
 
+**本轮（2026-09-23 下午，win32 断链修复 + 声明层实战首用，DSH win32 会话执行）**：
+- 断链诊断：用户将 DSH home 从 `C:\Users\宋浩天\.dsh` 迁至 `E:\DSH\home`（DSH_HOME 用户级 env；旧目录改名 `.dsh.migrated-backup`）→ 旧引擎候选表只有约定路径 → dsh detect 静默失败，sync 表面 OK 实际 0 文件 2 小时（门控日志 `dshAlive=True action=run` 掩盖部署侧空转）
+- 修复链（用户指示）：①内容库 `harness-paths.json` 去 .example 激活（声明 `dsh: E:\DSH\home`，四层链第 1 层首次实战）→ commit `601f26f` 推送 GitHub；②部署位引擎 ff 收编 9 提交（83e72ea→7c04abf：四层解析链 + env 隔离透传 + A1 内容跳过）；③tier4 PASS；④sync 真跑 `dsh (unchanged)`——迁移前后内容逐字节一致（sha256 c196add），A1 短路零 .bak
+- 备份历史清理（B1 首用 win 侧）：`.dsh.migrated-backup` 744 .bak → keep 2 删 742；E:\DSH\home 保持 0 .bak
+- 定时链验证：15:30/15:35 两个 timer tick 新引擎全通（state 文件随 tick 更新，"generated 0 file(s)"为 unchanged 短路正常态）
+- 遗留移交 dev 侧：sync 报告 not-detected 静默空转无显式信号（断链 2 小时无人察觉的根因）；engine.lock 仍指 dev 侧 ccb017cd（win32 基线 9 POSIX fail 达不成慢道提交门，惯例走部署位 ff 路径）
+- 事实修正：2026-09-16 轮记录的"serve C:\Users\宋浩天\.dsh"为迁移前布局；现网真相=迁移后 E:\DSH\home 为 dsh home（.migrated-backup .bak 链 2026-09-16 起、终于 2026-09-23T03:20Z 可证）
+
 **本轮（2026-09-23，备份冗余治理）**：
 - 问题：sync 每 5 分钟 generate 真写 AGENTS.md，install 无条件 backup → 内容零变更也产生 .bak；WSL 端实测 1007 个 .bak（8.4MB），win 端同机制
 - A1（源头治）：base.mjs +isContentUnchanged() helper（readFileSync+严格相等）；opencode.mjs+dsh.mjs install 开头加短路（内容相同→skip backup+write，skipped.push('unchanged')）；不碰 renderer→不需要 bump golden
