@@ -25,7 +25,7 @@ const FIXTURES = resolve(__dirname, 'fixtures');
 const goodYaml = readFileSync(resolve(FIXTURES, 'policies-good.yaml'), 'utf8');
 const policies = createValidator()(parse(goodYaml)).doc;
 
-const fakeEnv = (paths, home = '/fake') => ({ home, existsSync: (p) => paths.has(p) });
+const fakeEnv = (paths, home = '/fake') => ({ home, env: {}, existsSync: (p) => paths.has(p) });  // env:{} = 隔离真实 DSH_HOME/XDG 泄漏
 
 describe('A1: opencode FileMap keys (route A)', () => {
   const fm = opencodeAdapter.generate(policies, fakeEnv(new Set()));

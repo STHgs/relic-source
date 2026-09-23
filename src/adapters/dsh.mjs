@@ -18,14 +18,16 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { renderAgentsMd } from '../render/agents-md.mjs';
 import { backup, writeWithHeader, emptyReport } from './base.mjs';
-import { platformPaths } from '../core/paths.mjs';
+import { platformPaths, firstExisting } from '../core/paths.mjs';
 
 /** @type {import('./base.mjs').PlatformAdapter} */
 export default {
   id: 'dsh',
 
   detect(env) {
-    return env.existsSync(platformPaths(env.home).dsh[0]);
+    // 四层解析链（声明>env>约定）：env 对象透传（隔离真实环境，测试可注入干净 env）
+    const candidates = platformPaths(env.home, { env: env.env ?? process.env }).dsh;
+    return firstExisting(candidates, (d) => env.existsSync(d)) !== null;
   },
 
   generate(policies, _env) {
@@ -35,7 +37,9 @@ export default {
   install(fileMap, opts) {
     const report = emptyReport();
     const home = opts.home;
-    const dshDir = platformPaths(home).dsh[0];
+    // 安装跟随已存在目录（用户自定义优先）；全新安装写首个候选
+    const candidates = platformPaths(home).dsh;
+    const dshDir = firstExisting(candidates, existsSync) ?? candidates[0];
     const agentsMdPath = join(dshDir, 'AGENTS.md');
 
     if (opts.dryRun) {

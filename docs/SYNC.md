@@ -94,6 +94,19 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 - 调度器只管定时；win vbs 只管静默（门控已在 sync 内部，fdaf102 的 vbs 门控段已卸载）
 - 探测失败保守放行（宁可空转不误跳同步）
 
+## harness 位置四层解析链（2026-09-23，自定义安装支持）
+
+`src/core/paths.mjs` 按以下优先序解析各 harness 的部署位置（调研 DSH/OpenCode/Claude Code/chezmoi/XDG 后对齐业界共识）：
+
+| 层 | 机制 | 覆盖场景 |
+|---|---|---|
+| 1 显式声明 | 内容库 `harness-paths.json`（示例 `harness-paths.example.json`） | 用户自定义安装——亲口声明，绝对可靠，跨机同步 |
+| 2 标准环境变量 | `DSH_HOME` / `OPENCODE_CONFIG` / `OMO_HOME` / `XDG_CONFIG_HOME`（仅绝对路径合法，spec 规范） | 设了官方 env 的用户 |
+| 3 harness settings 反推 | （待实施，候选队列） | 用户在 harness 配置里改路径但未设系统 env |
+| 4 约定路径兜底 | `~/.dsh` `~/.config/opencode`（XDG 默认） `~/.omo` 等 | 默认安装用户零感知 |
+
+修法注记：opencode 走 XDG 解析（`~/.config` 仅为默认值）；omo 实测为点目录 `~/.omo`（非 XDG）——两 harness 行为不同，均已按真机事实固定。
+
 ## 骨架门禁（Tier4，2026-09-14）
 
 `npm run sync` 在 generate 之前运行骨架门禁；GitHub CI 在 push 后独立复核：

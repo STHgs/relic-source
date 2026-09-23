@@ -103,6 +103,7 @@ npm run upgrade -- --tag <tag>
 | push 被拒（scope） | `gh auth refresh -h github.com -s repo,workflow` |
 | npm install 慢 | `npm config set registry https://registry.npmmirror.com` |
 | DSH 开 session 无治理标志 | 确认 win 端 dsh 实际读取路径是否为 `%USERPROFILE%\.dsh\AGENTS.md`；不同则到本仓库提 issue 收敛 `src/core/paths.mjs` |
+| harness 自定义安装路径 relic 找不到 | 三层自救（按序）：①内容库放 `harness-paths.json` 声明实际路径（最高优先，示例见 relic-sync 的 `harness-paths.example.json`）②设官方 env：`DSH_HOME` / `OPENCODE_CONFIG` / `XDG_CONFIG_HOME`（系统级）③默认安装路径无需任何配置 |
 
 ## 其他平台
 

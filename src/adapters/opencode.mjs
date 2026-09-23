@@ -21,8 +21,8 @@ export default {
   id: 'opencode',
 
   detect(env) {
-    // 双路径探测（D3）：win32 AppData 惯例 + POSIX XDG，命中任一即可
-    const dirs = platformPaths(env.home).opencode;
+    // 四层解析链（声明>env>约定）+ win32 双路径；env 对象透传隔离真实环境
+    const dirs = platformPaths(env.home, { env: env.env ?? process.env }).opencode;
     return firstExisting(dirs, (d) => env.existsSync(join(d, 'opencode.jsonc'))) !== null;
   },
 
