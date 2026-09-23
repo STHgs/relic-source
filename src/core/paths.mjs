@@ -54,7 +54,7 @@ function xdgConfigHome(home, env = process.env) {
  * @param {string} home  归一化用户主目录（exec.userHome()）
  * @param {object} [opts]
  * @param {string} [opts.contentRepo]  内容库根（声明层读取；测试注入用）
- * @returns {{ opencode: string[], dsh: string[], omo: string[] }}
+ * @returns {{ opencode: string[], dsh: string[], omo: string[], codex: string[] }}
  */
 export function platformPaths(home, opts = {}) {
   // env 注入面：测试/调用方可传干净 env（环境无关原则）；缺省读 process.env
@@ -80,6 +80,11 @@ export function platformPaths(home, opts = {}) {
         ...(env.OMO_HOME ? [env.OMO_HOME] : []),
         `${home}\\.omo`,
       ],
+      codex: [
+        ...(declared.codex ? [declared.codex] : []),
+        ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),   // 官方 env（实证支持）
+        `${home}\\.codex`,                             // win32 home=USERPROFILE（doctor/desktop.rs）
+      ],
     };
   }
 
@@ -98,6 +103,11 @@ export function platformPaths(home, opts = {}) {
       ...(declared.omo ? [declared.omo] : []),
       ...(env.OMO_HOME ? [env.OMO_HOME] : []),
       `${home}/.omo`,   // 真机事实：OMO 用点目录（非 XDG）；XDG 仅 opencode 验证属实
+    ],
+    codex: [
+      ...(declared.codex ? [declared.codex] : []),
+      ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),     // 官方 env（guides/agents-md 实证）
+      `${home}/.codex`,
     ],
   };
 }

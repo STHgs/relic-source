@@ -15,7 +15,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { platformPaths, firstExisting } from '../src/core/paths.mjs';
 
-const ENV_KEYS = ['DSH_HOME', 'OPENCODE_CONFIG', 'OMO_HOME', 'XDG_CONFIG_HOME'];
+const ENV_KEYS = ['DSH_HOME', 'OPENCODE_CONFIG', 'OMO_HOME', 'XDG_CONFIG_HOME', 'CODEX_HOME'];
 const saved = {};
 const realPlatform = process.platform;
 
@@ -23,13 +23,14 @@ describe('PL1: layer-4 convention fallback (default env)', () => {
   beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
   afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
   it('opencode resolves to ~/.config/opencode (XdG default)', () => {
-    const p = platformPaths('/home/u');
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: {} });
     assert.deepEqual(p.opencode, [join('/home/u', '.config', 'opencode')]);
   });
-  it('dsh/omo use dotfile conventions', () => {
-    const p = platformPaths('/home/u');
+  it('dsh/omo/codex use dotfile conventions', () => {
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: {} });
     assert.deepEqual(p.dsh, ['/home/u/.dsh']);
     assert.deepEqual(p.omo, ['/home/u/.omo']);   // OMO 真机=点目录（非 XDG）
+    assert.deepEqual(p.codex, ['/home/u/.codex']);
   });
 });
 
@@ -37,25 +38,25 @@ describe('PL2: layer-2 env overrides', () => {
   beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
   afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
   it('DSH_HOME takes priority over convention', () => {
-    process.env.DSH_HOME = '/custom/dsh';
-    const p = platformPaths('/home/u');
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { DSH_HOME: '/custom/dsh' } });
     assert.deepEqual(p.dsh, ['/custom/dsh', '/home/u/.dsh']);
   });
   it('OPENCODE_CONFIG dir becomes top opencode candidate', () => {
-    process.env.OPENCODE_CONFIG = '/custom/oc/opencode.json';
-    const p = platformPaths('/home/u');
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { OPENCODE_CONFIG: '/custom/oc/opencode.json' } });
     assert.equal(p.opencode[0], '/custom/oc');
     assert.ok(p.opencode[1].endsWith('.config/opencode'));
   });
   it('XDG_CONFIG_HOME reroots opencode only (omo is dotdir fact)', () => {
-    process.env.XDG_CONFIG_HOME = '/xdg/root';
-    const p = platformPaths('/home/u');
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { XDG_CONFIG_HOME: '/xdg/root' } });
     assert.deepEqual(p.opencode, ['/xdg/root/opencode']);
     assert.deepEqual(p.omo, ['/home/u/.omo']);
   });
+  it('CODEX_HOME takes priority over convention', () => {
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { CODEX_HOME: '/custom/codex' } });
+    assert.deepEqual(p.codex, ['/custom/codex', '/home/u/.codex']);
+  });
   it('relative XDG_CONFIG_HOME ignored (spec violation)', () => {
-    process.env.XDG_CONFIG_HOME = 'relative/path';
-    const p = platformPaths('/home/u');
+    const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { XDG_CONFIG_HOME: 'relative/path' } });
     assert.ok(p.opencode[0].includes('/home/u/.config/opencode'));
   });
 });

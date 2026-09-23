@@ -21,11 +21,12 @@ import { parse } from 'yaml';
 import opencodeAdapter from '../adapters/opencode.mjs';
 import omoAdapter from '../adapters/omo.mjs';
 import dshAdapter from '../adapters/dsh.mjs';
+import codexAdapter from '../adapters/codex.mjs';
 import { loadPolicies } from '../core/loader.mjs';
 import { createValidator } from '../core/validator.mjs';
 import { loadProfile } from '../core/module-loader.mjs';
 
-const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, dshAdapter];  // claude 已退役（用户拍板 2026-09-15）
+const DEFAULT_ADAPTERS = [opencodeAdapter, omoAdapter, dshAdapter, codexAdapter];  // claude 已退役；codex 2026-09-23 入列
 
 /**
  * @typedef {Object} GenerateOptions

@@ -20,13 +20,14 @@ import { createValidator } from '../src/core/validator.mjs';
 import opencodeAdapter from '../src/adapters/opencode.mjs';
 import omoAdapter from '../src/adapters/omo.mjs';
 import dshAdapter from '../src/adapters/dsh.mjs';
+import codexAdapter from '../src/adapters/codex.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = resolve(__dirname, 'fixtures');
 const goodYaml = readFileSync(resolve(FIXTURES, 'policies-good.yaml'), 'utf8');
 const policies = createValidator()(parse(goodYaml)).doc;
 
-const fakeEnv = (paths, home = '/fake') => ({ home, env: {}, existsSync: (p) => paths.has(p) });  // env:{} = 隔离真实 DSH_HOME/XDG 泄漏
+const fakeEnv = (paths, home = '/fake') => ({ home, env: { RELIC_CONTENT_REPO: '/nonexistent-repo' }, existsSync: (p) => paths.has(p) });  // env 隔离：DSH_HOME/XDG/声明层（真实 harness-paths.json 会跨层泄漏进测试）
 
 describe('A1: opencode FileMap keys (route A)', () => {
   const fm = opencodeAdapter.generate(policies, fakeEnv(new Set()));
@@ -221,5 +222,59 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const r = dshAdapter.install({ 'AGENTS.md': '# new' }, { home: scratch, dryRun: false, env: {} });
     assert.equal(r.written.length, 1);
     assert.equal(r.backups.length, 1);
+  });
+});
+
+describe('A8: codex FileMap keys (route A)', () => {
+  const fm = codexAdapter.generate(policies, fakeEnv(new Set()));
+  it('FileMap = AGENTS.md only', () => {
+    assert.deepEqual(Object.keys(fm), ['AGENTS.md']);
+  });
+  it('AGENTS.md contains self-compliance governance', () => {
+    assert.match(fm['AGENTS.md'], /治理约束（自律执行）/);
+    assert.ok(!fm['AGENTS.md'].includes('运行时强制'), 'must not claim runtime enforcement');
+  });
+});
+
+describe('A8b: codex round-trip stability', () => {
+  const fm1 = codexAdapter.generate(policies, fakeEnv(new Set()));
+  const fm2 = codexAdapter.generate(parse(stringify(policies)), fakeEnv(new Set()));
+  it('FileMap byte-identical after round-trip', () => {
+    assert.equal(fm1['AGENTS.md'], fm2['AGENTS.md']);
+  });
+});
+
+describe('A8c: codex detect (env isolated)', () => {
+  it('detects when ~/.codex dir present', () => {
+    const home = '/fake';
+    const env = fakeEnv(new Set([join(home, '.codex')]), home);
+    assert.equal(codexAdapter.detect(env), true);
+  });
+  it('does not detect when absent', () => {
+    assert.equal(codexAdapter.detect(fakeEnv(new Set())), false);
+  });
+  it('CODEX_HOME env candidate probed before convention', () => {
+    const home = '/fake';
+    const env = fakeEnv(new Set(['/custom/codex']), home);
+    env.env = { CODEX_HOME: '/custom/codex' };
+    // 声明层同时隔离：env 加 RELIC_CONTENT_REPO 指向不存在路径
+    env.env.RELIC_CONTENT_REPO = '/nonexistent-repo';
+    assert.equal(codexAdapter.detect(env), true);
+  });
+});
+
+describe('A8d: codex install dryRun + unchanged skip', () => {
+  const home = '/nonexistent-dry-run-path';
+  it('dryRun returns skipped, no written, no errors', () => {
+    const r = codexAdapter.install({ 'AGENTS.md': '# x' }, { home, dryRun: true, env: {} });
+    assert.equal(r.written.length, 0);
+    assert.equal(r.errors.length, 0);
+    assert.ok(r.skipped.length > 0);
+  });
+  it('fresh install (no existing file) -> attempts write (not unchanged short-circuit)', () => {
+    const r = codexAdapter.install({ 'AGENTS.md': '# v' }, { home, dryRun: false, env: { RELIC_CONTENT_REPO: '/nonexistent-repo' } });
+    // /nonexistent 下写盘失败是预期——证明走了写入分支而非 unchanged 短路
+    assert.ok(!r.skipped.some((x) => x.includes('unchanged')), 'must not short-circuit on fresh install');
+    assert.ok(r.errors.length > 0 || r.written.length === 1, 'reached write branch');
   });
 });

@@ -101,9 +101,9 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 | 层 | 机制 | 覆盖场景 |
 |---|---|---|
 | 1 显式声明 | 内容库 `harness-paths.json`（示例 `harness-paths.example.json`） | 用户自定义安装——亲口声明，绝对可靠，跨机同步 |
-| 2 标准环境变量 | `DSH_HOME` / `OPENCODE_CONFIG` / `OMO_HOME` / `XDG_CONFIG_HOME`（仅绝对路径合法，spec 规范） | 设了官方 env 的用户 |
+| 2 标准环境变量 | `DSH_HOME` / `OPENCODE_CONFIG` / `OMO_HOME` / `CODEX_HOME` / `XDG_CONFIG_HOME`（仅绝对路径合法，spec 规范） | 设了官方 env 的用户 |
 | 3 harness settings 反推 | （待实施，候选队列） | 用户在 harness 配置里改路径但未设系统 env |
-| 4 约定路径兜底 | `~/.dsh` `~/.config/opencode`（XDG 默认） `~/.omo` 等 | 默认安装用户零感知 |
+| 4 约定路径兜底 | `~/.dsh` `~/.config/opencode`（XDG 默认） `~/.omo` `~/.codex` 等 | 默认安装用户零感知 |
 
 修法注记：opencode 走 XDG 解析（`~/.config` 仅为默认值）；omo 实测为点目录 `~/.omo`（非 XDG）——两 harness 行为不同，均已按真机事实固定。
 

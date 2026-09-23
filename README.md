@@ -7,7 +7,7 @@ relic-source（本仓库）      治理引擎：渲染器 / 骨架门禁 / 同�
         │
 relic-sync（你的私有库）    你的内容：规则模块 / 人设 / 工作流（每配置身份一个库）
         │
-   各平台的 AGENTS.md        DSH · OpenCode/OMO · （已退役：Claude Code）
+   各平台的 AGENTS.md        DSH · OpenCode/OMO · Codex（CLI/IDE/Desktop 全线）
 ```
 
 治理哲学：**纯提示词治理**——所有约束全量渲染进各平台读的 AGENTS.md，agent 自律执行（deny 级无例外、中高风险发起前显式声明），文件系统层由各平台原生沙箱兜底。引擎静态骨架由 golden 门禁守护，内容区（modules/personas/workflows）零审查、自由修改、5 分钟全域热生效。

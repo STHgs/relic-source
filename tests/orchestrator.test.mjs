@@ -49,12 +49,13 @@ const makeEnv = (present) => {
   if (present.omo) paths.add(join(home, '.omo', 'omo.jsonc'));
   if (present.claude) paths.add(join(home, '.claude'));
   if (present.dsh) paths.add(join(home, '.dsh'));
+  if (present.codex) paths.add(join(home, '.codex'));
   return { home, env: {}, existsSync: (p) => paths.has(p) };  // env:{} 隔离真实 DSH_HOME/XDG 泄漏（CI runner XDG 劫持候选序）
 };
 
 describe('O1: all 3 platforms fake-present, dryRun → no writes, no errors', () => {
   it('returns ok=true with written:[] and skipped listing all 4 as dryRun', async () => {
-    const env = makeEnv({ opencode: true, omo: true, dsh: true });  // claude 已退役
+    const env = makeEnv({ opencode: true, omo: true, dsh: true, codex: true });  // claude 已退役
     // 注入 env 进 generate：需要传 existsSync 和 home
     const r = await generate(goodPolicies, {
       home: env.home,
@@ -67,17 +68,18 @@ describe('O1: all 3 platforms fake-present, dryRun → no writes, no errors', ()
     assert.equal(r.report.written.length, 0);  // dryRun 不写
     // 4 个适配器都检测到了，各有一条 dryRun skipped
     const dryRunSkips = r.report.skipped.filter((s) => s.includes('dryRun'));
-    assert.equal(dryRunSkips.length, 3);
+    assert.equal(dryRunSkips.length, 4);
     // fileMaps 四个都有
     assert.ok(r.fileMaps.opencode, 'opencode fileMap present');
     assert.ok(r.fileMaps.omo, 'omo fileMap present');
     assert.ok(r.fileMaps.dsh, 'dsh fileMap present');
+    assert.ok(r.fileMaps.codex, 'codex fileMap present');
   });
 });
 
 describe('O2: no platform present → skipped lists all 3, written:[]', () => {
   it('all 4 adapters in skipped as not-detected, fileMaps empty', async () => {
-    const env = makeEnv({ opencode: false, omo: false, claude: false, dsh: false });
+    const env = makeEnv({ opencode: false, omo: false, claude: false, dsh: false, codex: false });
     const r = await generate(goodPolicies, {
       home: env.home,
       dryRun: false,  // 即使非 dryRun，没检测到也不写
@@ -87,7 +89,7 @@ describe('O2: no platform present → skipped lists all 3, written:[]', () => {
     assert.equal(r.ok, true);
     assert.equal(r.report.written.length, 0);
     const notDetected = r.report.skipped.filter((s) => s.includes('not detected'));
-    assert.equal(notDetected.length, 3);  // claude retired
+    assert.equal(notDetected.length, 4);  // claude retired; codex added
     assert.equal(Object.keys(r.fileMaps).length, 0);
   });
 });

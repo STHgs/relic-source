@@ -19,6 +19,7 @@ const HARNESS_SIGNATURES = {
   dsh: ['@deepseek-ai/dsh', '@deepseek-ai\\dsh', 'dsh serve', 'dsh web'],
   opencode: ['opencode'],
   omo: ['omo.jsonc', 'oh-my-openagent', 'omo serve'],
+  codex: ['codex', '.codex'],   // CLI/IDE/Desktop 全线（进程命令行含 codex 或 home 路径）
 };
 
 /**
