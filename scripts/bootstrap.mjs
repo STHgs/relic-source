@@ -6,6 +6,7 @@
 // 幂等：可重复运行；已就绪的步骤自动跳过。
 // =============================================================================
 import { spawnSync } from 'child_process';
+import { run as runExec } from '../src/core/exec.mjs';  // win32 shell 解析 npm.cmd（同步既有修复）
 import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -13,8 +14,9 @@ import { createInterface } from 'readline';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const run = (cmd, args, opts = {}) => {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', stdio: opts.inherit ? 'inherit' : 'pipe', ...opts });
-  return { ok: r.status === 0, out: (r.stdout || '') + (r.stderr || '') };
+  // win32 经 exec.mjs（shell 解析 npm.cmd）；POSIX 行为不变；stdio inherit 透传交互
+  const r = runExec(cmd, args, { encoding: 'utf8', ...(opts.inherit ? { stdio: 'inherit' } : {}), ...opts });
+  return { ok: r.ok, out: (r.stdout || '') + (r.stderr || '') };
 };
 const ask = (q) => new Promise((res) => {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
