@@ -50,7 +50,7 @@ export async function generate(policies, opts = {}) {
     existsSync: exists = existsSync,
   } = opts;
 
-  const env = { home, existsSync: exists };
+  const env = { home, existsSync: exists, ...(opts.env !== undefined ? { env: opts.env } : {}) };  // env 透传：测试干净 env 隔离（CI XDG/DSH_HOME 泄漏根治）
   const fileMaps = {};
   const reports = {};
   const allWritten = [];
