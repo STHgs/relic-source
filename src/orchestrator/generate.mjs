@@ -80,7 +80,7 @@ export async function generate(policies, opts = {}) {
     }
 
     // install
-    const r = adapter.install(fm, { home, dryRun: false });
+    const r = adapter.install(fm, { home, dryRun: false, ...(opts.env !== undefined ? { env: opts.env } : {}) });  // env 透传至 install（与 detect 同型）
     reports[id] = r;
     if (r.ok) {
       allWritten.push(...r.written);
