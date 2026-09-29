@@ -32,7 +32,10 @@ else {
   if (v < 20) need.push(`node >= 20 需要（当前 ${v}）`);
 }
 if (!run('git', ['--version']).ok) need.push('git');
-if (!run('gh', ['--version']).ok) need.push('gh CLI (https://cli.github.com)');
+if (!run('gh', ['--version']).ok) {
+  // gh 仅 --provider github 的 init-sync 需要；gitee 默认流程只要 git+node
+  console.log('[bootstrap] 提示：gh CLI 未安装——同步库将默认走 Gitee（无需 gh）；若要用 GitHub 托管（--provider github），请安装 https://cli.github.com');
+}
 if (need.length > 0) { console.error('[bootstrap] 缺少前置：\n  ' + need.join('\n  ')); process.exit(1); }
 log('环境自检通过（node/git/gh）');
 
@@ -44,7 +47,7 @@ const contentReady = existsSync(cfgPath)
   : existsSync(join(defaultContent, 'policies.yaml'));
 
 if (!contentReady) {
-  const mode = await ask('未发现身份内容库。1=新建身份（自动建私有同步库） 2=接入已有同步库（填 URL） [1] ');
+  const mode = await ask('未发现身份内容库。1=新建身份（Gitee 私有库，令牌粘贴一次） 2=接入已有同步库（填 URL） [1] ');
   if (mode === '2') {
     const url = await ask('同步库 URL: ');
     const r = run('git', ['clone', url, defaultContent], { inherit: true });

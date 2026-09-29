@@ -60,8 +60,10 @@ npm run bootstrap
 
 | 提示 | 选择 |
 |---|---|
-| 未发现身份内容库 | **新用户**选 `1`（自动创建私有同步库，从 template 种子开始）；**接入已有身份**选 `2` 并填同步库 URL（如 `https://github.com/<you>/relic-sync.git`） |
-| gh 授权 | 若第 2 步已做，此处自动跳过 |
+| 未发现身份内容库 | **新用户**选 `1`（在 Gitee 自动创建私有同步库——提示粘贴私人令牌一次，令牌页见第 2 步说明）；**接入已有身份**选 `2` 并填同步库 URL（如 `https://gitee.com/<you>/relic-sync.git`） |
+| Gitee 令牌 | 选 `1` 时：到 gitee.com → 设置 → 安全设置 → 私人令牌 → 生成（勾选 projects）→ 粘贴一次 |
+
+> 托管平台说明：**同步库默认 Gitee**（大陆可达性优先，2026-09-29 起）；`--provider github` 可切回 GitHub（需 gh CLI 设备码授权）。引擎库（本仓库）仍在 GitHub（CI 门禁依赖）。
 
 自动执行链：clone 同步库到 `~\.config\relic-sync` → `npm install` → 首次 `npm run sync`（探测到 `%USERPROFILE%\.dsh` 等平台 → 写入各自 `AGENTS.md`，含哨兵与门禁）→ `schtasks` 调度器注册 → 输出部署报告。
 

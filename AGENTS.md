@@ -34,6 +34,7 @@
 - [x] 全量去硬约束（2026-09-15）：运行时 permission 注入全面退役——opencode/omo 适配器降级 route A（omo 成为显式 no-op，治理文本由 opencode AGENTS.md 统一送达）；骨架措辞重构（硬约束表→「治理约束（自律执行）」，ask/deny 语义自律化，风险分级中高风险改"直接发起+显式声明"）；Tier2 哨兵翻转为"配置不被触碰+治理文本送达"；cleanup-legacy-permissions 增 --include-primary 并清空现网全部注入（双快照可回滚）；284 tests 282 pass。
 - [x] 工作习惯系统 L1-L4（2026-09-15）：L1 声明层 personas（schema 增量 identity/language/verbosity/default，渲染「助手人设」数据段）；L2 会话内即时调整 + L3 本机学习库 ~/.config/relic-habits/learned.yaml（分型/去重/按价值落盘/50 条上限/25KB 预算）+ L4 habit-promotion 显式晋升工作流；「学习与适应」机制段入骨架（首次 golden bump 仪式实战）；调研 Claude Code auto memory/Cursor Rules/mem0/Letta 后吸收四项改进。**B 断言 v2 重设计**：v1"匹配骨架行不变性"被 persona 激活条件段误报实战证伪 → 改为"确定性守卫"（inputSig=内容commit+golden+渲染器源码，同输入必同输出）；tier4 移除同误报类的 HEAD~1 渲染对比。人设拟稿已部署 relic-sync（用户主权区可随时改）。
 - [x] 引擎/内容拆分（2026-09-15）：relic（→GitHub rename relic-source）= 纯引擎静态权威源（template/ 种子 + CI 防混入断言）；STHgs/relic-sync = 本人身份内容库（init-sync --import 自动创建，含 engine.lock）；sync 内容库发现链（--content>env>relic.config.json>约定）；runtimeRoot=manifest 目录不变量；bootstrap 一键入口（自检/init-sync/依赖/sync/调度器自动安装）冒烟绿；upgrade 慢道脚本就绪。方案 output/v7/split-plan.md。CI 调通顺带修复测试环境依赖（cli/cli-profile 自带 fake HOME、I3 模块副本动态化）——落实测试权威性=不依赖机器布局；gh token 补 workflow scope 后 workflow 方可推送。
+- [x] 同步库默认 Gitee（2026-09-29）：迁移实测（origin→gitee.com/sthgs/relic-sync，GitHub 留 backup 远程；VS Code GIT_ASKPASS 劫持排障——终端内提示需清空该变量）；引擎侧 provider 抽象（src/core/provider.mjs：gitee API v5 建库/whoami/存在性 + github gh CLI 平移）；init-sync 默认 gitee 令牌引导流；bootstrap gh 前置降级为 github 模式专属。336 tests 334 pass。
 - [x] Codex 适配器（2026-09-23）：codex.mjs route A（CLI/IDE/Desktop 全线读 ~/.codex/AGENTS.md，CODEX_HOME 官方 env，win home=USERPROFILE 实证）；四层链+gate 签名+O1/O2 计数适配；A8 测试四组；调研 openai/codex 源码（agents_md.rs/doctor/desktop.rs）实证。331 tests 329 pass。
 - [x] harness 位置四层解析链（2026-09-23）：paths.mjs 升级为声明（内容库 harness-paths.json）> 标准环境变量（DSH_HOME/OPENCODE_CONFIG/XDG_CONFIG_HOME）> 约定兜底；适配器 detect/install 按候选序探测；env 可注入（测试环境无关）；调研 DSH/OpenCode/Claude Code/chezmoi/XDG 对齐业界共识（无一家做自主扫描）。XDG 化实测纠正：opencode=XDG 解析、omo=点目录（真机事实）。301 tests 299 pass。
 - [x] 通用同步门控（2026-09-22）：sync 第 0 步统一全平台——任一 harness 消费者探测（dsh/opencode/omo 签名表，posix=pgrep win=wmic），定时器上下文（无 TTY）无消费者则静默跳过+日志；手动 isTTY 直通 + --no-gate；win vbs 卸门控只管静默（fdaf102 门控段迁入 sync）。298 tests 296 pass。
@@ -74,6 +75,7 @@
 - 结论（roadmap 渲染架构 2026-09-12）：AGENTS.md=骨架（硬约束表+替代方案+风险分级+subagent 提示+哨兵+给助手的话）+索引表（绝对路径）；workflow 正文留在 modules/ 触发时 Read（全平台热加载）；风险分级是跨模块合并视图、无单一文件可指，常驻骨架；路径=meta.runtimeRoot（本机 clone 根，generate CLI 注入）+meta.workflowSources（mergeFragments 溯源，inline 流程指向 policies.yaml）。理由：注入层热加载是平台赠品（DSH 有 reconcile，其他平台未必），读时加载是唯一平台无关的热治理机制。
 - 结论（一机一部署者 2026-09-12）：每台机器只有一个 clone 负责 generate+install（WSL=~/.config/relic dev clone；E盘库=归档/只读部署位，其 sync 不在本机部署）。理由：adapter 写 $HOME 路径，多 clone 同机部署会互相覆盖且 runtimeRoot 路径错乱。
 - 结论（骨架静态原则，用户拍板 2026-09-14）：正式系统骨架是静态的——骨架=渲染器的唯一函数；任何用户自定义提交（modules/policies 内容）导致骨架行变更即违法。骨架变更唯一合法路径=renderer 代码与 golden 基准（tests/fixtures/golden-skeleton.md）同一提交更新，golden 的 diff 就是系统级变更的审查材料。实现：Tier4 双断言（A 等价/B 不变），sync generate 前硬拦截 + CI 回归信号。理由：门禁守护治理系统本身，用户主权内容零审查——语法与结构是系统的，语义与内容是用户的。
+- 结论（托管平台默认 Gitee，用户拍板 2026-09-29）：同步库默认 gitee（大陆可达性，timer 5 分钟拉取是高频痛点）；引擎库留 GitHub（CI 依赖）；provider 抽象收敛平台差异，新用户令牌粘贴一次替代 gh 设备码；Gitee API 建库首次真机验证待用户跑（无令牌环境无法实测，mock 测试全绿）。
 - 结论（四层解析链，2026-09-23）：自定义安装适配采用业界共识发现链（声明>env>约定），不做自主扫描（四家调研对象无一家做）；XDG_CONFIG_HOME 是标准层非可选项；harness 间差异按真机事实记录（opencode=XDG、omo=点目录），不臆测统一。第 3 层（harness settings 反推）列候选。
 - 结论（Claude 适配器退役，用户拍板 2026-09-15）：删除 claude adapter。理由：本机未部署使用 Claude Code；route A 同构逻辑已由 opencode/dsh 覆盖，保留死适配器只是维护面。需要时 git 历史可整体恢复（route A 适配器 15 分钟即可重建）。
 - 结论（Windows 适配 D1-D4，2026-09-15）：执行层全数组化（拒注入面，win32 才走 shell）；调度器 schtasks/launchd/systemd 三平台一等分支；路径变体集中在 core/paths.mjs 单点维护；opencode win32 路径官方未定档故双路径探测（Q3，真机实测后收敛为单路径）。真机验证清单在 docs/SYNC.md Windows 节。
@@ -110,6 +112,7 @@
 - .gitignore / .gitattributes — git 基础配置（.gitignore 含 *.tar.gz 排除导出包）
 - output/v4/deploy-export-plan.md — 热插拔部署+分支生命周期方案
 - src/core/sync-core.mjs — 同步原语核心（runSync：脏拒/ff-only/哨兵检/状态；deployGuardHook）
+- src/core/provider.mjs — 托管平台抽象（gitee API v5 默认 / github gh CLI）
 - src/core/skeleton.mjs — 骨架门禁纯逻辑（探针策略/骨架行集抽取/断言A等价 + B确定性守卫v2：computeDeterminismState/checkDeterminism）
 - scripts/tier4-skeleton.mjs — 骨架门禁 CLI（断言A+唯一性；--bump-golden 系统变更仪式；v2 已精简）
 - scripts/init-sync.mjs — 每身份自动建库（gh 引导登录/--import 迁移/engine.lock/身份登记 relic.config.json）

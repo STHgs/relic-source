@@ -94,6 +94,14 @@ schtasks /Create /TN "relic-sync" /SC MINUTE /MO 5 /TR "cmd /c cd /d <clone> && 
 - 调度器只管定时；win vbs 只管静默（门控已在 sync 内部，fdaf102 的 vbs 门控段已卸载）
 - 探测失败保守放行（宁可空转不误跳同步）
 
+## 托管平台（2026-09-29：同步库默认 Gitee）
+
+- **同步库（relic-sync）默认 Gitee**：init-sync 走 Gitee API v5 建库（`--provider github` 切回 gh CLI 流）
+- 认证差异：Gitee = 私人令牌（设置→安全设置→私人令牌，勾选 projects，粘贴一次入 credential store）；GitHub = gh 设备码
+- 存量部署不受影响：sync 只认 origin，已迁移的 clone 零改动
+- 引擎库（relic-source）留 GitHub——CI 门禁依赖 GitHub Actions
+- 已有身份多平台接入不变：clone URL 填 Gitee 地址即可
+
 ## harness 位置四层解析链（2026-09-23，自定义安装支持）
 
 `src/core/paths.mjs` 按以下优先序解析各 harness 的部署位置（调研 DSH/OpenCode/Claude Code/chezmoi/XDG 后对齐业界共识）：
