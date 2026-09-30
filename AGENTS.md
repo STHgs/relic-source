@@ -3,6 +3,44 @@
 > 跨 session/平台交接文件。任何 agent 进入本项目时必须先读取此文件再执行任务。
 > 每轮 session 结束前（含中断退出）必须更新「当前进度」和「交接说明」区块。只写事实，不写推测。
 
+## ⚡ Agent 部署引导（用户说"帮我装 relic"时按此执行）
+
+如果你的用户要求部署/安装 relic，按以下最短路径执行（目标用户已在使用 agent，node/git 大概率就绪）：
+
+### 前置检查（30 秒）
+
+```bash
+node -v    # 需要 ≥ 20；缺失则先装 Node.js LTS
+git --version
+```
+
+### 部署（3 条命令）
+
+```bash
+git clone https://gitee.com/sthgs/relic-source.git ~/relic-source
+cd ~/relic-source && npm install
+npm run wizard    # 启动浏览器 GUI 向导，交还给用户完成（选身份/粘贴令牌）
+```
+
+**关键**：向导启动后**交还控制权给用户**——身份选择和 Gitee 令牌粘贴是用户主权操作，agent 不代填。向导会自动完成：环境检查 → 内容库创建/接入 → 治理部署 → 调度器注册 → 完成报告。
+
+### 验证（向导完成后）
+
+```bash
+# 治理文本已送达（任一已部署平台，预期 ≥ 2 处匹配）
+grep -c "治理约束\|助手人设" ~/.dsh/AGENTS.md 2>/dev/null || grep -c "治理约束" ~/.config/opencode/AGENTS.md 2>/dev/null
+```
+
+部署成功后，**新开 agent session 即受治理**（认标志：输出首行 `RELIC IS RUNNING @ 时间戳`）。
+
+### 用户问"怎么回退"时
+
+```bash
+npm run uninstall -- --level uninject    # 仅移除治理文本（秒级可恢复）
+npm run uninstall -- --reinject          # 恢复
+npm run wizard                           # GUI 控制台：状态/恢复/升级/卸载四 Tab
+```
+
 ## 1. 任务目标
 
 - relic 是可插拔、可跨平台移植的个人 agent 配置系统：规则（rules）、工作流（workflows）、人设/性格（persona/personality）等以统一源维护、可长期演进，并随用户迁移到不同平台（OpenCode、Claude Code、Codex、Cursor 等）而无需从零重配。
