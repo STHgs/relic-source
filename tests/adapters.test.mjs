@@ -13,7 +13,10 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, resolve, join } from 'path';
+import { posix } from 'path';
+import { resolve } from 'path';
+const join = posix.join;  // 正斜杠标准（与 paths.mjs 对齐）
+const dirname = posix.dirname;
 import { parse, stringify } from 'yaml';
 import { tmpdir } from 'os';
 import { createValidator } from '../src/core/validator.mjs';
