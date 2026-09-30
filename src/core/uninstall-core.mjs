@@ -102,7 +102,7 @@ export async function uninject(opts = {}) {
 }
 
 /** 恢复去治理（从 UNINJECT_BACKUP_DIR 恢复 AGENTS.md） */
-export async function reinject() {
+export async function reinject(opts = {}) {
   const restored = [];
   const errors = [];
   if (!existsSync(UNINJECT_BACKUP_DIR)) {
