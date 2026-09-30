@@ -9,7 +9,8 @@
 // =============================================================================
 
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { posix } from 'path';
+const join = posix.join;  // 正斜杠标准（与 paths.mjs 对齐；Node fs 兼容 win）
 import { emptyReport } from './base.mjs';
 import { platformPaths, firstExisting } from '../core/paths.mjs';
 
