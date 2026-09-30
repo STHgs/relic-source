@@ -129,6 +129,6 @@ if (cur.includes('relic sync') || cur.includes('npm run sync')) {
   console.log('[schedule] ✅ crontab 已有 relic sync 条目'); process.exit(0);
 }
 const next = (cur.trim() + '\n' + line + '\n').replace(/^\n/, '');
-const ins = run('sh', ['-c', `printf '%s' "${next.replace(/"/g, '\"')}" | crontab -`]);
+const ins = process.platform === 'win32' ? { ok: false, out: 'cron not on win32' } : run('sh', ['-c', `printf '%s' "${next.replace(/"/g, '\"')}" | crontab -`]);
 console.log(ins.ok ? '[schedule] ✅ cron 已安装（每 5 分钟）' : '[schedule] crontab 写入失败（权限？）——请手动加：\n  ' + line);
 process.exit(ins.ok ? 0 : 1);
