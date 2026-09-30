@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>relic 安装向导</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2dd4bf;
+    --accent-bg: rgba(45,212,191,.12); --ok: #3fb950; --err: #f85149;
+    --warn: #d29922; --radius: 8px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,'Segoe UI','PingFang SC',sans-serif; }
+  body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; align-items:center; }
+  .wizard { width:640px; max-width:95vw; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .header { padding:20px 24px 0; display:flex; justify-content:space-between; align-items:center; }
+  .logo { font-size:18px; font-weight:700; color:var(--accent); letter-spacing:1px; }
+  .step-ind { display:flex; gap:6px; align-items:center; }
+  .step-dot { width:24px; height:4px; border-radius:2px; background:var(--border); transition:.3s; }
+  .step-dot.active { background:var(--accent); }
+  .step-dot.done { background:var(--ok); }
+  .step-label { font-size:11px; color:var(--muted); margin-left:4px; }
+  .body { padding:24px; min-height:380px; }
+
+  .env-row { display:flex; align-items:center; padding:12px 16px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; }
+  .env-icon { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; margin-right:12px; flex-shrink:0; }
+  .env-icon.ok { background:rgba(63,185,80,.15); color:var(--ok); }
+  .env-icon.err { background:rgba(248,81,73,.15); color:var(--err); }
+  .env-icon.opt { background:rgba(139,148,158,.15); color:var(--muted); }
+  .env-name { font-size:14px; font-weight:500; width:140px; }
+  .env-ver { font-size:12px; color:var(--muted); flex:1; font-family:monospace; }
+  .btn-install { padding:4px 12px; border:1px solid var(--accent); border-radius:4px; background:var(--accent-bg); color:var(--accent); font-size:12px; cursor:pointer; }
+  .btn-install:hover { background:rgba(45,212,191,.25); }
+  .btn-install:disabled { opacity:.4; cursor:not-allowed; }
+
+  .radio-card { display:block; padding:16px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; cursor:pointer; transition:.2s; }
+  .radio-card:hover { border-color:var(--accent); }
+  .radio-card.selected { border-color:var(--accent); background:var(--accent-bg); }
+  .radio-card input { display:none; }
+  .radio-title { font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .radio-desc { font-size:13px; color:var(--muted); margin-top:6px; margin-left:26px; }
+  .radio-check { width:18px; height:18px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .radio-card.selected .radio-check { border-color:var(--accent); }
+  .radio-card.selected .radio-check::after { content:''; width:10px; height:10px; border-radius:50%; background:var(--accent); }
+  .url-input { width:100%; padding:10px 12px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:13px; margin-top:8px; display:none; }
+  .url-input.show { display:block; }
+  .url-input:focus { outline:none; border-color:var(--accent); }
+  .radio-tag { font-size:11px; color:var(--accent); margin-left:auto; }
+
+  .steps-hint { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px; }
+  .steps-hint li { font-size:13px; color:var(--muted); margin:4px 0 4px 16px; }
+  .steps-hint a { color:var(--accent); text-decoration:none; }
+  .token-input { width:100%; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:14px; font-family:monospace; letter-spacing:1px; }
+  .token-input:focus { outline:none; border-color:var(--accent); }
+  .token-status { font-size:12px; margin-top:6px; min-height:16px; }
+  .token-status.ok { color:var(--ok); }
+  .token-status.err { color:var(--err); }
+
+  .progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:20px; }
+  .progress-fill { height:100%; background:var(--accent); border-radius:3px; transition:width .5s ease; }
+  .task-item { display:flex; align-items:center; gap:10px; padding:6px 0; font-size:14px; }
+  .task-icon { width:18px; display:flex; justify-content:center; flex-shrink:0; }
+  .task-icon.done { color:var(--ok); }
+  .task-icon.active { color:var(--accent); }
+  .task-icon.pending { color:var(--muted); }
+  .task-icon.active::after { content:'⟳'; animation:spin 1s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .task-icon.warn { color:var(--warn); }
+  .log-box { margin-top:16px; background:#0a0e14; border:1px solid var(--border); border-radius:4px; padding:12px; font-family:monospace; font-size:12px; max-height:120px; overflow-y:auto; }
+  .log-line { padding:1px 0; }
+  .log-line.ok { color:var(--ok); }
+  .log-line.err { color:var(--err); }
+  .log-line .prefix { color:var(--accent); }
+  .cursor-blink { display:inline-block; width:8px; height:14px; background:var(--accent); animation:blink 1s step-end infinite; vertical-align:middle; }
+  @keyframes blink { 50% { opacity:0; } }
+
+  .report-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .report-item { display:flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); font-size:13px; }
+  .report-item .check { color:var(--ok); }
+  .tips-box { margin-top:16px; padding:14px; background:rgba(45,212,191,.08); border-radius:var(--radius); }
+  .tips-title { font-size:13px; font-weight:600; color:var(--accent); margin-bottom:6px; }
+  .tips-content { font-size:13px; color:var(--muted); line-height:1.6; }
+  .tips-content code { background:var(--bg); padding:2px 6px; border-radius:3px; font-family:monospace; font-size:12px; color:var(--text); }
+
+  .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .tab { padding:10px 20px; font-size:14px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab.disabled { opacity:.4; cursor:not-allowed; }
+  .version-row { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; }
+  .version-label { font-size:13px; color:var(--muted); }
+  .version-value { font-size:14px; font-weight:600; font-family:monospace; }
+  .version-badge { font-size:11px; padding:2px 8px; border-radius:3px; background:rgba(63,185,80,.15); color:var(--ok); }
+
+  .footer { display:flex; justify-content:space-between; padding:16px 24px; border-top:1px solid var(--border); }
+  .btn { padding:10px 20px; border:none; border-radius:var(--radius); font-size:14px; font-weight:500; cursor:pointer; }
+  .btn-primary { background:var(--accent); color:var(--bg); }
+  .btn-primary:hover { filter:brightness(1.15); }
+  .btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-secondary { background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .btn-secondary:hover { border-color:var(--text); color:var(--text); }
+  .btn-success { background:var(--ok); color:var(--bg); }
+  .btn-danger { background:var(--err); color:var(--bg); }
+
+  .error-banner { padding:10px 14px; background:rgba(248,81,73,.1); border:1px solid var(--err); border-radius:var(--radius); margin-bottom:12px; font-size:13px; color:var(--err); display:none; }
+  .error-banner.show { display:block; }
+  .hidden { display:none!important; }
+</style>
+</head>
+<body>
+
+<div class="wizard">
+  <div class="header">
+    <div class="logo">◇ relic</div>
+    <div class="step-ind" id="stepInd"></div>
+  </div>
+
+  <div class="body">
+
+    <!-- Step 1: 环境检查 -->
+    <div class="screen" id="scr-env">
+      <h2 style="font-size:16px; margin-bottom:16px">环境检查</h2>
+      <div class="error-banner" id="envErr"></div>
+      <div id="envList"></div>
+    </div>
+
+    <!-- Step 2: 身份选择 -->
+    <div class="screen hidden" id="scr-identity">
+      <h2 style="font-size:16px; margin-bottom:16px">身份选择</h2>
+      <label class="radio-card selected" id="rc-gitee" onclick="selectMode('gitee')">
+        <div class="radio-title"><div class="radio-check"></div>新建身份（Gitee）<span class="radio-tag">推荐</span></div>
+        <div class="radio-desc">自动创建 Gitee 私有同步库</div>
+      </label>
+      <label class="radio-card" id="rc-existing" onclick="selectMode('existing')">
+        <div class="radio-title"><div class="radio-check"></div>接入已有身份</div>
+        <div class="radio-desc">输入同步库 URL</div>
+        <input class="url-input" type="text" id="urlInput" placeholder="https://gitee.com/xxx/relic-sync.git">
+      </label>
+      <label class="radio-card" id="rc-github" onclick="selectMode('github')">
+        <div class="radio-title"><div class="radio-check"></div>新建身份（GitHub）</div>
+        <div class="radio-desc">需要 gh CLI 设备码授权</div>
+      </label>
+    </div>
+
+    <!-- Step 3: 令牌 -->
+    <div class="screen hidden" id="scr-token">
+      <h2 style="font-size:16px; margin-bottom:16px">Gitee 私人令牌</h2>
+      <div class="steps-hint">
+        <li>打开 <a href="https://gitee.com/profile/personal_access_tokens" target="_blank">gitee.com → 设置 → 私人令牌</a></li>
+        <li>生成新令牌，勾选 <b>projects</b> 权限</li>
+        <li>生成后<b>立即复制</b>（只显示一次），粘贴到下方</li>
+      </div>
+      <input class="token-input" type="password" id="tokenInput" placeholder="粘贴令牌...">
+      <div class="token-status" id="tokenStat"></div>
+    </div>
+
+    <!-- Step 4: 部署进度 -->
+    <div class="screen hidden" id="scr-deploy">
+      <h2 style="font-size:16px; margin-bottom:16px">部署中</h2>
+      <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      <div id="taskList"></div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+    <!-- Step 5: 完成 -->
+    <div class="screen hidden" id="scr-done">
+      <h2 style="font-size:16px; margin-bottom:4px">🎉 安装完成</h2>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px">relic 已在以下平台部署治理</p>
+      <div class="report-grid" id="reportGrid"></div>
+      <div class="tips-box">
+        <div class="tips-title">如何修改规则 / 人设</div>
+        <div class="tips-content">
+          编辑 <code>~/.config/relic-sync/policies.yaml</code><br>
+          提交推送后 <b>5 分钟内</b> 所有平台自动生效
+        </div>
+      </div>
+    </div>
+
+    <!-- 升级 -->
+    <div class="screen hidden" id="scr-upgrade">
+      <div class="tabs">
+        <div class="tab disabled">安装（已部署）</div>
+        <div class="tab active">升级</div>
+      </div>
+      <div class="version-row">
+        <div><div class="version-label">当前版本</div><div class="version-value" id="curVer">...</div></div>
+        <div><div class="version-label">最新版本</div><div class="version-value" id="newVer">...</div></div>
+      </div>
+      <div id="upgradeTasks" style="margin:12px 0"></div>
+      <div class="progress-bar"><div class="progress-fill" id="upgFill" style="width:0%"></div></div>
+      <div class="log-box" id="upgLog" style="max-height:80px"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <button class="btn btn-secondary" id="btnPrev" onclick="nav(-1)">← 上一步</button>
+    <div style="display:flex; gap:8px">
+      <button class="btn btn-primary" id="btnNext" onclick="nav(1)">下一步 →</button>
+      <button class="btn btn-success hidden" id="btnDone" onclick="window.close()">完成 🎉</button>
+      <button class="btn btn-primary hidden" id="btnUpgrade" onclick="startUpgrade()">开始升级</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── 状态 ───────────────────────────────────────────────────────────
+let step = 1;
+let identityMode = 'gitee';
+let giteeToken = '';
+let deployConfig = null;
+let alreadyDeployed = false;
+const totalSteps = 5;
+const screens = ['env','identity','token','deploy','done'];
+const stepNames = ['环境检查','身份选择','令牌','部署中','安装完成'];
+
+// ─── 初始化 ──────────────────────────────────────────────────────
+async function init() {
+  const r = await fetch('/api/check');
+  const data = await r.json();
+  alreadyDeployed = data.deployed;
+
+  // 渲染环境检查
+  const list = document.getElementById('envList');
+  list.innerHTML = '';
+  let allOk = true;
+  for (const c of data.checks) {
+    if (!c.ok && !c.optional) allOk = false;
+    const row = document.createElement('div');
+    row.className = 'env-row';
+    row.innerHTML = `
+      <div class="env-icon ${c.ok ? 'ok' : c.optional ? 'opt' : 'err'}">${c.ok ? '✓' : c.optional ? '—' : '✗'}</div>
+      <div class="env-name">${c.name}</div>
+      <div class="env-ver">${c.version || c.hint || ''}</div>
+    `;
+    list.appendChild(row);
+  }
+
+  // 已部署 → 直接跳到升级界面
+  if (alreadyDeployed) {
+    showScreen('upgrade');
+    loadVersion();
+    return;
+  }
+  showScreen('env');
+}
+
+// ─── 屏幕切换 ────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  const el = document.getElementById('scr-' + name);
+  if (el) el.classList.remove('hidden');
+
+  const idx = screens.indexOf(name);
+  if (idx >= 0) step = idx + 1;
+
+  // 按钮
+  document.getElementById('btnPrev').style.visibility = (name === 'upgrade' || step <= 1) ? 'hidden' : 'visible';
+  document.getElementById('btnNext').style.display = (step >= 5 || name === 'upgrade') ? 'none' : '';
+  document.getElementById('btnDone').classList.toggle('hidden', name !== 'done');
+  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade');
+
+  renderStepInd(name === 'upgrade' ? -1 : step - 1);
+
+  // 按钮 label
+  if (step === 1) document.getElementById('btnNext').textContent = '下一步 →';
+  else if (step === 2) document.getElementById('btnNext').textContent = identityMode === 'gitee' ? '下一步 →' : '开始部署 →';
+  else if (step === 3) document.getElementById('btnNext').textContent = '校验并部署 →';
+}
+
+function nav(dir) {
+  if (dir === 1) {
+    if (step === 2 && identityMode === 'existing') {
+      // 跳过令牌步骤，直接部署
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) { alert('请输入同步库 URL'); return; }
+      deployConfig = { mode: 'existing', url };
+      startDeploy();
+      return;
+    }
+    if (step === 3) {
+      const token = document.getElementById('tokenInput').value.trim();
+      if (!token) { alert('请粘贴令牌'); return; }
+      giteeToken = token;
+      deployConfig = { mode: 'gitee', token };
+      startDeploy();
+      return;
+    }
+  }
+  const next = Math.max(1, Math.min(5, step + dir));
+  showScreen(screens[next - 1]);
+}
+
+function renderStepInd(active) {
+  const el = document.getElementById('stepInd');
+  el.innerHTML = '';
+  if (active < 0) {
+    el.innerHTML = '<span class="step-label">版本升级</span>';
+    return;
+  }
+  for (let i = 0; i < 5; i++) {
+    const d = document.createElement('div');
+    d.className = 'step-dot' + (i < active ? ' done' : i === active ? ' active' : '');
+    el.appendChild(d);
+  }
+  const l = document.createElement('span');
+  l.className = 'step-label';
+  l.textContent = `${stepNames[active] || ''} ${active + 1}/5`;
+  el.appendChild(l);
+}
+
+// ─── 身份选择 ────────────────────────────────────────────────────
+function selectMode(mode) {
+  identityMode = mode;
+  document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('rc-' + mode).classList.add('selected');
+  document.getElementById('urlInput').classList.toggle('show', mode === 'existing');
+}
+
+// ─── 令牌校验 ────────────────────────────────────────────────────
+async function validateToken() {
+  const token = document.getElementById('tokenInput').value.trim();
+  const stat = document.getElementById('tokenStat');
+  if (!token) { stat.textContent = ''; stat.className = 'token-status'; return; }
+  stat.textContent = '校验中...'; stat.className = 'token-status';
+  const r = await fetch('/api/token', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token }) });
+  const data = await r.json();
+  if (data.ok) {
+    stat.textContent = `✓ 令牌有效（${data.login}）`; stat.className = 'token-status ok';
+  } else {
+    stat.textContent = `✗ ${data.reason}`; stat.className = 'token-status err';
+  }
+}
+
+// ─── 部署（SSE 流式进度） ──────────────────────────────────────
+const deploySteps = ['准备身份内容库', '安装引擎依赖', '部署治理规则', '安装调度器', '验证部署'];
+
+async function startDeploy() {
+  showScreen('deploy');
+  const fill = document.getElementById('progFill');
+  const taskList = document.getElementById('taskList');
+  const logBox = document.getElementById('logBox');
+
+  // 初始化任务列表
+  taskList.innerHTML = deploySteps.map((name, i) => `
+    <div class="task-item" id="task-${i+1}">
+      <span class="task-icon pending">○</span> ${name}
+    </div>
+  `).join('');
+  logBox.innerHTML = '';
+  fill.style.width = '0%';
+
+  try {
+    const response = await fetch('/api/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deployConfig),
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          handleDeployEvent(data, fill, taskList, logBox);
+        } catch {}
+      }
+    }
+  } catch (e) {
+    showDeployError(e.message, logBox);
+  }
+}
+
+function handleDeployEvent(data, fill, taskList, logBox) {
+  if (data.type === 'error') {
+    showDeployError(data.message, logBox);
+    return;
+  }
+  if (data.type === 'done') {
+    renderReport(data.report);
+    showScreen('done');
+    return;
+  }
+  // 进度事件
+  const { step: s, status, message } = data;
+  const el = document.getElementById('task-' + s);
+  if (el) {
+    const icon = el.querySelector('.task-icon');
+    if (status === 'done') { icon.className = 'task-icon done'; icon.textContent = '✓'; }
+    else if (status === 'active') { icon.className = 'task-icon active'; icon.textContent = ''; }
+    else if (status === 'warn') { icon.className = 'task-icon warn'; icon.textContent = '⚠'; }
+  }
+  // 日志
+  if (message) {
+    const line = document.createElement('div');
+    line.className = 'log-line' + (status === 'done' ? ' ok' : '');
+    line.innerHTML = `<span class="prefix">[${status}]</span> ${message}`;
+    logBox.appendChild(line);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+  // 进度条
+  const progress = (s / 5) * 100;
+  fill.style.width = progress + '%';
+}
+
+function showDeployError(msg, logBox) {
+  const line = document.createElement('div');
+  line.className = 'log-line err';
+  line.textContent = `✗ ${msg}`;
+  logBox.appendChild(line);
+  logBox.scrollTop = logBox.scrollHeight;
+  document.getElementById('btnPrev').style.visibility = 'visible';
+}
+
+function renderReport(report) {
+  const grid = document.getElementById('reportGrid');
+  grid.innerHTML = '';
+  for (const p of report.platforms) {
+    if (!p.deployed) continue;
+    const item = document.createElement('div');
+    item.className = 'report-item';
+    item.innerHTML = `<span class="check">✓</span> ${p.name}<span style="color:var(--muted);font-size:11px;margin-left:auto">${p.path.split('/').pop()}</span>`;
+    grid.appendChild(item);
+  }
+  if (report.scheduler) {
+    const item = document.createElement('div');
+    item.className = 'report-item';
+    item.innerHTML = `<span class="check">✓</span> 调度器<span style="color:var(--muted);font-size:11px;margin-left:auto">每 5 分钟自动同步</span>`;
+    grid.appendChild(item);
+  }
+}
+
+// ─── 升级 ────────────────────────────────────────────────────────
+async function loadVersion() {
+  const r = await fetch('/api/version');
+  const data = await r.json();
+  document.getElementById('curVer').textContent = data.engine.commit?.slice(0, 8) || 'unknown';
+  document.getElementById('newVer').textContent = data.engine.tag || 'latest';
+}
+
+const upgradeSteps = ['获取远端版本', '切换版本', '安装依赖', '运行测试', '重新部署', '更新 engine.lock'];
+
+async function startUpgrade() {
+  document.getElementById('btnUpgrade').disabled = true;
+  const fill = document.getElementById('upgFill');
+  const taskList = document.getElementById('upgradeTasks');
+  const logBox = document.getElementById('upgLog');
+
+  taskList.innerHTML = upgradeSteps.map((name, i) => `
+    <div class="task-item" id="upg-task-${i+1}">
+      <span class="task-icon pending">○</span> ${name}
+    </div>
+  `).join('');
+  logBox.innerHTML = '';
+  fill.style.width = '0%';
+
+  try {
+    const response = await fetch('/api/upgrade', { method: 'POST' });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'error') {
+            const el = document.createElement('div');
+            el.className = 'log-line err';
+            el.textContent = `✗ ${data.message}`;
+            logBox.appendChild(el);
+            document.getElementById('btnUpgrade').disabled = false;
+            return;
+          }
+          if (data.type === 'done') {
+            const el = document.createElement('div');
+            el.className = 'log-line ok';
+            el.textContent = `🎉 升级完成：${data.report.version}`;
+            logBox.appendChild(el);
+            loadVersion();
+            document.getElementById('btnUpgrade').textContent = '已是最新 ✓';
+            return;
+          }
+          const el = document.getElementById('upg-task-' + data.step);
+          if (el) {
+            const icon = el.querySelector('.task-icon');
+            if (data.status === 'done') { icon.className = 'task-icon done'; icon.textContent = '✓'; }
+            else if (data.status === 'active') { icon.className = 'task-icon active'; icon.textContent = ''; }
+          }
+          if (data.message) {
+            const log = document.createElement('div');
+            log.className = 'log-line';
+            log.textContent = data.message;
+            logBox.appendChild(log);
+            logBox.scrollTop = logBox.scrollHeight;
+          }
+          fill.style.width = (data.step / 6 * 100) + '%';
+        } catch {}
+      }
+    }
+  } catch (e) {
+    alert('升级失败：' + e.message);
+    document.getElementById('btnUpgrade').disabled = false;
+  }
+}
+
+// ─── 令牌输入防抖 ──────────────────────────────────────────────
+let tokenDebounce;
+document.getElementById('tokenInput').addEventListener('input', () => {
+  clearTimeout(tokenDebounce);
+  tokenDebounce = setTimeout(validateToken, 500);
+});
+
+init();
+</script>
+</body>
+</html>
