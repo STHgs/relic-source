@@ -7,7 +7,7 @@
 <style>
 @font-face{font-family:'VT323';src:url('fonts/VT323.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
 :root{
-  --bg:#000000;         --card:#0a0800;       --border:#3A2810;
+  --bg:#000000;         --card:#0a0800;       --border:#6B4A1A;
   --text:#FFC866;       --muted:#A87838;      --accent:#FFB000;
   --accent-bg:rgba(255,176,0,.12);            --ok:#7ab648;
   --err:#e04430;        --warn:#c4841c;       --radius:6px;
@@ -30,7 +30,7 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
 .wizard{animation:crt-flicker 6s infinite}
 
 /* === 向导容器 === */
-.wizard{width:680px;max-width:95vw;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;z-index:1;box-shadow:0 0 40px rgba(255,176,0,.06),0 0 4px rgba(255,176,0,.15)}
+.wizard{width:680px;max-width:95vw;background:var(--card);border:2px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;z-index:1;box-shadow:0 0 40px rgba(255,176,0,.12),0 0 8px rgba(255,176,0,.25)}
 .header{padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center}
 .logo{font-size:26px;font-weight:600;color:var(--accent);letter-spacing:2px;text-shadow:var(--glow-strong)}
 .step-ind{display:flex;gap:6px;align-items:center}
