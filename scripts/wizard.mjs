@@ -108,7 +108,10 @@ function wizardPreSyncClean(contentDir) {
   const status = run('git', ['status', '--porcelain'], { cwd: contentDir });
   if (status.ok && status.stdout.trim() !== '') {
     const commitR = run('git', ['commit', '-m', 'wizard: auto-commit before deploy (user-initiated)'], { cwd: contentDir });
-    if (!commitR.ok) {
+    if (commitR.ok) {
+      // push 到远端（防 diverged——本地有 commit 而远端没有）
+      run('git', ['push', 'origin', 'main'], { cwd: contentDir });
+    } else {
       // commit 失败 → stash 兜底
       run('git', ['stash', '-u'], { cwd: contentDir });
     }
