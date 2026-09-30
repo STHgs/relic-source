@@ -1,6 +1,14 @@
 # relic
 
-跨平台个人 agent 治理系统：一套规则与人设，治理你所有的 AI 编程助手。
+> 名称取自《赛博朋克 2077》中的 relic 生物芯片——一枚让意识和习惯跨越载体存续的植入物。
+
+## 为什么做 relic
+
+AI 工具正在爆发式发展，每天都有新产品涌现。但对个人使用者来说，**切换平台意味着重新配置一切**——权限规则、工作习惯、常用流程都要从头再来，耗时费神。多平台用户的处境更糟：不同平台的 AI 各自为政、记忆互不相通，使用体验割裂，手动维护同步又极其费力。
+
+relic 的愿景：**帮助用户长期维护一个符合自己使用习惯的工作伙伴**——你调教一次，它跟随你到任何平台。
+
+## 它是怎么工作的
 
 ```
 relic-source（本仓库）      治理引擎：渲染器 / 骨架门禁 / 同步机制 / 平台适配器
@@ -10,11 +18,44 @@ relic-sync（你的私有库）    你的内容：规则模块 / 人设 / 工作
    各平台的 AGENTS.md        DSH · OpenCode/OMO · Codex（CLI/IDE/Desktop 全线）
 ```
 
-治理哲学：**纯提示词治理**——所有约束全量渲染进各平台读的 AGENTS.md，agent 自律执行（deny 级无例外、中高风险发起前显式声明），文件系统层由各平台原生沙箱兜底。引擎静态骨架由 golden 门禁守护，内容区（modules/personas/workflows）零审查、自由修改、5 分钟全域热生效。
+核心机制：**纯提示词治理**——你的全部规则与人设被编译成各平台读的 AGENTS.md，agent 自律执行（deny 级无例外、中高风险发起前显式声明）。主要能力：
 
-## 快速开始（任一平台三行）
+- **一套身份，多平台生效** —— 改一次规则，5 分钟内所有已部署平台热更新
+- **自定义安装路径自动发现** —— 四层解析链（声明 > 环境变量 > 官方配置 > 约定路径）
+- **全生命周期管理** —— GUI 安装向导 / 升级 / 按平台选择性卸载 / 一键恢复治理
+- **学习与适应** —— agent 观察你的偏好并持久化，说"记住"即可晋升为全域规则
+- **骨架门禁** —— 引擎渲染器有 golden 基线守护，内容区（modules/personas/workflows）零审查、自由修改
+- **同步库默认 Gitee** —— 大陆可达性优先，GitHub 备选
 
-前置：`node ≥ 20`、`git`、[GitHub CLI](https://cli.github.com)（Windows 用 winget 装，见下）
+## 快速开始（推荐：GUI 安装向导）
+
+### Windows —— 双击即装
+
+从 [GitHub 仓库页](https://github.com/STHgs/relic-source)（或 [Gitee 镜像](https://gitee.com/sthgs/relic-source)）下载 **`relic-setup.cmd`**，双击运行：
+
+```
+自动安装 Node.js + Git（winget）→ 下载引擎 → 打开浏览器向导
+    → 环境检查 → 选身份（Gitee 新建 / 接入已有）→ 粘贴令牌
+    → 实时进度 → 完成报告（治理已部署 + 调度器已注册）
+```
+
+已装过前置依赖的用户也可以跳过引导：
+
+```powershell
+git clone https://gitee.com/sthgs/relic-source.git
+cd relic-source
+npm run wizard        # 浏览器自动打开 http://localhost:17777
+```
+
+### Linux / WSL / macOS
+
+```bash
+git clone https://github.com/STHgs/relic-source.git
+cd relic-source
+./install.sh          # 启动同一套浏览器向导
+```
+
+### 命令行安装（备选，适合脚本化/CI）
 
 ```bash
 git clone https://github.com/STHgs/relic-source.git
@@ -23,6 +64,16 @@ npm run bootstrap
 ```
 
 bootstrap 自动完成：环境自检 → 内容库接入（新身份自动建私有库 / 老身份 clone）→ 依赖安装 → 首次部署（骨架门禁 + 写各平台 AGENTS.md + 哨兵校验）→ 调度器安装（每 5 分钟自动同步）。
+
+### 向导的日常管理（已部署用户）
+
+`npm run wizard` 打开后自动检测部署状态，提供三 Tab：
+
+| Tab | 功能 |
+|---|---|
+| **恢复治理** | 去治理后一键恢复（备份还原 + sync 兜底） |
+| **升级** | 检查新版本 → 测试门禁 → 重新部署 → 更新 engine.lock |
+| **卸载** | 三级：去治理（秒级可恢复）/ 停服务 / 完全卸载；支持按平台选择性移除 |
 
 ---
 
