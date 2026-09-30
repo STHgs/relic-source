@@ -10,15 +10,15 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { posix } from 'path';
-const join = posix.join;  // 正斜杠标准（与 paths.mjs posix.join 对齐）
+import { posix, join as fsJoin } from 'path';
+const join = posix.join;  // 正斜杠标准（路径比较用）
 import { stringify } from 'yaml';
 import { generate } from '../src/orchestrator/generate.mjs';
 import { pipeline } from '../src/index.mjs';
 
 let scratch;
 beforeEach(() => {
-  scratch = mkdtempSync(join(tmpdir(), 'relic-orch-'));
+  scratch = mkdtempSync(fsJoin(tmpdir(), 'relic-orch-'));
 });
 afterEach(() => {
   rmSync(scratch, { recursive: true, force: true });

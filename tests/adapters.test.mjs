@@ -13,9 +13,10 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { posix, resolve } from 'path';
-const join = posix.join;  // 正斜杠标准（与 paths.mjs 对齐）
+import { posix, resolve, join as fsJoin } from 'path';
+const join = posix.join;  // 正斜杠标准（路径比较/断言用）
 const dirname = posix.dirname;
+// fsJoin = 原生平台 join（真实文件系统操作用——mkdtempSync 等需要平台正确分隔符）
 import { parse, stringify } from 'yaml';
 import { tmpdir } from 'os';
 import { createValidator } from '../src/core/validator.mjs';
@@ -176,7 +177,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
   beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
   afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   let scratch;
-  beforeEach(() => { scratch = mkdtempSync(join(tmpdir(), 'relic-a1-')); });
+  beforeEach(() => { scratch = mkdtempSync(fsJoin(tmpdir(), 'relic-a1-')); });
   afterEach(() => { rmSync(scratch, { recursive: true, force: true }); });
 
   it('opencode: same content → skipped, no .bak, no written', () => {
@@ -276,7 +277,7 @@ describe('A8c: codex detect (env isolated, posix behavior)', () => {
 describe('A8d: codex install dryRun + unchanged skip (posix behavior)', () => {
   beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
   afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
-  const home = mkdtempSync(join(tmpdir(), 'relic-a8d-'));  // 真实 tmpdir（win 上 /nonexistent 会被创建留残渣）
+  const home = mkdtempSync(fsJoin(tmpdir(), 'relic-a8d-'));  // 真实 tmpdir（fsJoin：真实 fs 操作用平台原生分隔符）
   it('dryRun returns skipped, no written, no errors', () => {
     const r = codexAdapter.install({ 'AGENTS.md': '# x' }, { home, dryRun: true, env: {} });
     assert.equal(r.written.length, 0);
