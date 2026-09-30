@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { existsSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, posix } from 'path';
 import { userHome } from './exec.mjs';
 
 /**
@@ -46,7 +46,7 @@ function readDeclaredPaths(contentRepo, optsEnv = process.env) {
  */
 function xdgConfigHome(home, env = process.env) {
   const x = env.XDG_CONFIG_HOME;
-  return x && x.startsWith('/') ? x : join(home, '.config');
+  return x && x.startsWith('/') ? x : posix.join(String(home).replace(/\\/g, '/'), '.config');
 }
 
 /**
@@ -64,33 +64,35 @@ export function platformPaths(home, opts = {}) {
 
   // Unified path construction with path.join (cross-platform separator)
   const isWin = process.platform === 'win32';
+  const h = String(home).replace(/\\/g, '/');  // 正斜杠归一（Node fs 在 win 上兼容 /）
+  const pj = posix.join;  // 始终正斜杠——双端行为一致
 
   const dsh = [
     ...(declared.dsh ? [declared.dsh] : []),
     ...(env.DSH_HOME ? [env.DSH_HOME] : []),
-    join(home, '.dsh'),
+    pj(h, '.dsh'),
   ];
   const omo = [
     ...(declared.omo ? [declared.omo] : []),
     ...(env.OMO_HOME ? [env.OMO_HOME] : []),
-    join(home, '.omo'),
+    pj(h, '.omo'),
   ];
   const codex = [
     ...(declared.codex ? [declared.codex] : []),
     ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),
-    join(home, '.codex'),
+    pj(h, '.codex'),
   ];
   const opencode = isWin
     ? [
         ...(declared.opencode ? [declared.opencode] : []),
-        ...(env.OPENCODE_CONFIG ? [dirname(env.OPENCODE_CONFIG)] : []),
-        join(home, 'AppData', 'Roaming', 'opencode'),
-        join(home, '.config', 'opencode'),
+        ...(env.OPENCODE_CONFIG ? [posix.dirname(env.OPENCODE_CONFIG)] : []),
+        pj(h, 'AppData', 'Roaming', 'opencode'),
+        pj(h, '.config', 'opencode'),
       ]
     : [
         ...(declared.opencode ? [declared.opencode] : []),
-        ...(env.OPENCODE_CONFIG ? [dirname(env.OPENCODE_CONFIG)] : []),
-        join(xdg, 'opencode'),
+        ...(env.OPENCODE_CONFIG ? [posix.dirname(env.OPENCODE_CONFIG)] : []),
+        pj(xdg, 'opencode'),
       ];
 
   return { dsh, opencode, omo, codex };

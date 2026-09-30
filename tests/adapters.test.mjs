@@ -211,7 +211,7 @@ describe('A7: install unchanged → skip (A1 content-equality)', () => {
     const content = '# governance v1';
     writeFileSync(agentsMdPath, content, 'utf8');
 
-    const r = dshAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false, env: {} });
+    const r = dshAdapter.install({ 'AGENTS.md': content }, { home: scratch, dryRun: false, env: { RELIC_CONTENT_REPO: '/nonexistent-repo' } });
     assert.equal(r.written.length, 0);
     assert.equal(r.backups.length, 0);
     assert.ok(r.skipped.some((x) => x.includes('unchanged')), `expected unchanged in skipped: ${r.skipped}`);
@@ -274,7 +274,7 @@ describe('A8c: codex detect (env isolated, posix behavior)', () => {
 describe('A8d: codex install dryRun + unchanged skip (posix behavior)', () => {
   beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
   afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
-  const home = '/nonexistent-dry-run-path';
+  const home = mkdtempSync(join(tmpdir(), 'relic-a8d-'));  // 真实 tmpdir（win 上 /nonexistent 会被创建留残渣）
   it('dryRun returns skipped, no written, no errors', () => {
     const r = codexAdapter.install({ 'AGENTS.md': '# x' }, { home, dryRun: true, env: {} });
     assert.equal(r.written.length, 0);
@@ -282,9 +282,9 @@ describe('A8d: codex install dryRun + unchanged skip (posix behavior)', () => {
     assert.ok(r.skipped.length > 0);
   });
   it('fresh install (no existing file) -> attempts write (not unchanged short-circuit)', () => {
-    const r = codexAdapter.install({ 'AGENTS.md': '# v' }, { home, dryRun: false, env: { RELIC_CONTENT_REPO: '/nonexistent-repo' } });
-    // /nonexistent 下写盘失败是预期——证明走了写入分支而非 unchanged 短路
+    const r = codexAdapter.install({ 'AGENTS.md': '# v-' + Date.now() }, { home, dryRun: false, env: { RELIC_CONTENT_REPO: '/nonexistent-repo' } });
+    // tmpdir 存在但 .codex/AGENTS.md 不存在 → 走写入分支（非 unchanged 短路）
     assert.ok(!r.skipped.some((x) => x.includes('unchanged')), 'must not short-circuit on fresh install');
-    assert.ok(r.errors.length > 0 || r.written.length === 1, 'reached write branch');
+    assert.ok(r.errors.length === 0 || r.written.length === 1, 'reached write branch');
   });
 });
