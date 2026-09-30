@@ -21,10 +21,26 @@ const HEADLESS_ENV = () => ({ ...process.env, GIT_ASKPASS: '', SSH_ASKPASS: '', 
  * @returns {{ok:boolean, stdout:string, stderr:string, status:number|null}}
  */
 export function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, {
+  // win32 shell:true 时 args 数组被拼为字符串——引号/空格会被 cmd.exe 吞。
+  // 修法：win 上把 cmd+args 拼成一个命令串传给 shell（args 里的引号手动转义）
+  const isWin = process.platform === 'win32';
+  let finalCmd = cmd;
+  let finalArgs = args;
+  let useShell = false;
+  if (isWin) {
+    // 检查是否需要 shell（npm.cmd 等 .cmd 文件需要）
+    const needsShell = cmd.endsWith('.cmd') || cmd === 'npm' || cmd === 'npx' || cmd === 'schtasks' || cmd === 'wmic';
+    if (needsShell) {
+      useShell = true;
+      finalCmd = [cmd, ...args.map(a => a.includes(' ') ? `"${a}"` : a)].join(' ');
+      finalArgs = [];
+    }
+    // 不需要 shell 的（node/git）直接 spawn——win 也能找到
+  }
+  const r = spawnSync(finalCmd, finalArgs, {
     encoding: 'utf8',
     env: HEADLESS_ENV(),
-    shell: process.platform === 'win32',   // 仅 win32：npm.cmd/schtasks 需 shell 解析
+    shell: useShell,
     ...opts,
   });
   return {

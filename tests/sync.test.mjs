@@ -78,7 +78,7 @@ describe('S2: dirty working tree -> refuse, no generate', () => {
     assert.equal(r.ok, false);
     assert.equal(r.stage, 'dirty');
     assert.equal(generated, 0);
-    sh('rm uncommitted.txt', clone1);
+    rmSync(join(clone1, 'uncommitted.txt'), { force: true });
   });
 });
 
