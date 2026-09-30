@@ -80,20 +80,44 @@ async function checkEnvironment() {
   return checks;
 }
 
-/** 向导专用：sync 前自动清理内容库脏状态（备份文件 + 未提交改动） */
+/** 向导专用：sync 前清理内容库（加固版——覆盖所有脏状态场景） */
 function wizardPreSyncClean(contentDir) {
-  // 1. 删除 .bak 备份文件（产物，非用户内容）
-  const entries = readdirSync(contentDir, { recursive: true });
-  for (const e of entries) {
-    if (typeof e === 'string' && e.includes('.bak.')) {
-      try { rmSync(join(contentDir, e), { force: true }); } catch {}
-    }
+  if (!existsSync(contentDir)) return;
+
+  // 0. 确保 git 用户配置（防 commit 失败）
+  const emailR = run('git', ['config', 'user.email'], { cwd: contentDir });
+  if (!emailR.ok || !emailR.stdout.trim()) {
+    run('git', ['config', 'user.email', 'wizard@relic.local'], { cwd: contentDir });
+    run('git', ['config', 'user.name', 'relic wizard'], { cwd: contentDir });
   }
-  // 2. 自动提交剩余未提交改动（向导是显式用户操作，安全）
+
+  // 1. 删 .bak 备份文件（产物，非用户内容）
+  try {
+    const entries = readdirSync(contentDir, { recursive: true });
+    for (const e of entries) {
+      if (typeof e === 'string' && e.includes('.bak.')) {
+        try { rmSync(join(contentDir, e), { force: true }); } catch {}
+      }
+    }
+  } catch {}
+
+  // 2. add -A 先行（确保 untracked 文件也被暂存）
+  run('git', ['add', '-A'], { cwd: contentDir });
+
+  // 3. 有暂存内容则 commit
   const status = run('git', ['status', '--porcelain'], { cwd: contentDir });
   if (status.ok && status.stdout.trim() !== '') {
-    run('git', ['add', '-A'], { cwd: contentDir });
-    run('git', ['commit', '-m', 'wizard: auto-commit before deploy (user-initiated)'], { cwd: contentDir });
+    const commitR = run('git', ['commit', '-m', 'wizard: auto-commit before deploy (user-initiated)'], { cwd: contentDir });
+    if (!commitR.ok) {
+      // commit 失败 → stash 兜底
+      run('git', ['stash', '-u'], { cwd: contentDir });
+    }
+  }
+
+  // 4. 最终验证——仍有脏文件则报错（而非静默通过）
+  const final = run('git', ['status', '--porcelain'], { cwd: contentDir });
+  if (final.ok && final.stdout.trim() !== '') {
+    throw new Error(`内容库无法清理（残留：${final.stdout.trim().split('\n')[0]}）`);
   }
 }
 
