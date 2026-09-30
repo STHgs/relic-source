@@ -672,7 +672,7 @@ const originalShowScreen = showScreen;
 showScreen = function(name) {
   originalShowScreen(name);
   document.getElementById('btnUninstall').classList.toggle('hidden', name !== 'uninstall');
-  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade' && name !== 'uninstall');
+  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade');
   if (name === 'uninstall') loadDeployed();
   // 更新所有 Tab 的 active 状态
   document.querySelectorAll('.tabs .tab').forEach(t => {
