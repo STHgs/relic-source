@@ -191,6 +191,41 @@
       <div class="log-box" id="upgLog" style="max-height:80px"></div>
     </div>
 
+    <!-- 卸载 -->
+    <div class="screen hidden" id="scr-uninstall">
+      <div class="tabs">
+        <div class="tab disabled">安装（已部署）</div>
+        <div class="tab disabled">升级</div>
+        <div class="tab active">卸载</div>
+      </div>
+      <h2 style="font-size:16px; margin-bottom:8px">当前部署</h2>
+      <div id="uninstallDeployedList" style="margin-bottom:16px"></div>
+
+      <h2 style="font-size:16px; margin-bottom:8px">卸载级别</h2>
+      <label class="radio-card selected" id="uc-uninject" onclick="selectUninstallLevel('uninject')">
+        <div class="radio-title"><div class="radio-check"></div>去治理</div>
+        <div class="radio-desc">移除部署位 AGENTS.md + 备份。保留一切——秒级恢复</div>
+      </label>
+      <label class="radio-card" id="uc-deactivate" onclick="selectUninstallLevel('deactivate')">
+        <div class="radio-title"><div class="radio-check"></div>停服务</div>
+        <div class="radio-desc">上述 + 停用调度器（可重新启用）</div>
+      </label>
+      <label class="radio-card" id="uc-full" onclick="selectUninstallLevel('full')">
+        <div class="radio-title"><div class="radio-check"></div>完全卸载</div>
+        <div class="radio-desc">⚠️ 上述 + 删引擎/内容库/habits——身份数据将丢失（会先 push）</div>
+      </label>
+
+      <div id="fullConfirm" class="hidden" style="margin-top:12px; padding:12px; background:rgba(248,81,73,.1); border:1px solid var(--err); border-radius:var(--radius)">
+        <div style="font-size:13px; color:var(--err); margin-bottom:8px">⚠️ 完全卸载将删除你的全部规则和人设</div>
+        <input type="text" id="fullConfirmInput" placeholder="输入 YES 确认" style="width:100%; padding:8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text)">
+      </div>
+
+      <div id="uninstallProgress" class="hidden" style="margin-top:16px">
+        <div class="progress-bar"><div class="progress-fill" id="uninstFill" style="width:0%"></div></div>
+        <div class="log-box" id="uninstLog" style="max-height:100px"></div>
+      </div>
+    </div>
+
   </div>
 
   <div class="footer">
@@ -199,6 +234,7 @@
       <button class="btn btn-primary" id="btnNext" onclick="nav(1)">下一步 →</button>
       <button class="btn btn-success hidden" id="btnDone" onclick="window.close()">完成 🎉</button>
       <button class="btn btn-primary hidden" id="btnUpgrade" onclick="startUpgrade()">开始升级</button>
+      <button class="btn btn-danger hidden" id="btnUninstall" onclick="startUninstall()">执行卸载</button>
     </div>
   </div>
 </div>
@@ -523,6 +559,115 @@ document.getElementById('tokenInput').addEventListener('input', () => {
   clearTimeout(tokenDebounce);
   tokenDebounce = setTimeout(validateToken, 500);
 });
+
+// ─── 卸载 ────────────────────────────────────────────────────────
+let uninstallLevel = 'uninject';
+
+function selectUninstallLevel(level) {
+  uninstallLevel = level;
+  document.querySelectorAll('#scr-uninstall .radio-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('uc-' + level).classList.add('selected');
+  document.getElementById('fullConfirm').classList.toggle('hidden', level !== 'full');
+}
+
+async function loadDeployed() {
+  const r = await fetch('/api/deployed');
+  const data = await r.json();
+  const el = document.getElementById('uninstallDeployedList');
+  el.innerHTML = '';
+  if (data.deployed.length === 0) {
+    el.innerHTML = '<div style="font-size:13px; color:var(--muted)">未检测到已部署平台</div>';
+    return;
+  }
+  for (const p of data.deployed) {
+    const row = document.createElement('div');
+    row.className = 'env-row';
+    row.innerHTML = `<div class="env-icon ok">✓</div><div class="env-name">${p.name}</div><div class="env-ver">${p.filePath}</div>`;
+    el.appendChild(row);
+  }
+}
+
+async function startUninstall() {
+  const btn = document.getElementById('btnUninstall');
+  if (uninstallLevel === 'full') {
+    const confirmText = document.getElementById('fullConfirmInput').value.trim();
+    if (confirmText !== 'YES') { alert('请输入 YES 确认完全卸载'); return; }
+  }
+  btn.disabled = true;
+  btn.textContent = '卸载中...';
+  const fill = document.getElementById('uninstFill');
+  const logBox = document.getElementById('uninstLog');
+  const prog = document.getElementById('uninstallProgress');
+  prog.classList.remove('hidden');
+  logBox.innerHTML = '';
+  fill.style.width = '0%';
+
+  try {
+    const response = await fetch('/api/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: uninstallLevel }),
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'error') {
+            const el = document.createElement('div');
+            el.className = 'log-line err';
+            el.textContent = `✗ ${data.message}`;
+            logBox.appendChild(el);
+            btn.disabled = false; btn.textContent = '执行卸载';
+            return;
+          }
+          if (data.type === 'done') {
+            const el = document.createElement('div');
+            el.className = 'log-line ok';
+            el.textContent = `🎉 卸载完成`;
+            logBox.appendChild(el);
+            fill.style.width = '100%';
+            btn.textContent = '已卸载 ✓';
+            if (uninstallLevel === 'uninject') {
+              const hint = document.createElement('div');
+              hint.style.cssText = 'font-size:12px;color:var(--muted);margin-top:8px';
+              hint.textContent = '如需恢复：npm run uninstall -- --reinject';
+              logBox.appendChild(hint);
+            }
+            return;
+          }
+          if (data.message) {
+            const el = document.createElement('div');
+            el.className = 'log-line';
+            el.textContent = data.message;
+            logBox.appendChild(el);
+            logBox.scrollTop = logBox.scrollHeight;
+          }
+          fill.style.width = '50%';
+        } catch {}
+      }
+    }
+  } catch (e) {
+    alert('卸载失败：' + e.message);
+    btn.disabled = false; btn.textContent = '执行卸载';
+  }
+}
+
+// Tab 管理更新：已部署时显示三 Tab
+const originalShowScreen = showScreen;
+showScreen = function(name) {
+  originalShowScreen(name);
+  document.getElementById('btnUninstall').classList.toggle('hidden', name !== 'uninstall');
+  if (name === 'uninstall') loadDeployed();
+};
 
 init();
 </script>

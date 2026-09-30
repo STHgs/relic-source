@@ -19,7 +19,8 @@
     "bootstrap": "node scripts/bootstrap.mjs",
     "upgrade": "node scripts/upgrade.mjs",
     "cleanup-backups": "node scripts/cleanup-backups.mjs",
-    "wizard": "node scripts/wizard.mjs"
+    "wizard": "node scripts/wizard.mjs",
+    "uninstall": "node scripts/uninstall.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

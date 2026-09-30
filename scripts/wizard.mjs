@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { run, userHome } from '../src/core/exec.mjs';
 import { giteeWhoami, giteeCreateRepo, giteeRepoExists, getProvider } from '../src/core/provider.mjs';
+import { listDeployed, uninject, reinject, deactivate, fullUninstall } from '../src/core/uninstall-core.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HOME = userHome();
@@ -371,6 +372,49 @@ const server = createServer(async (req, res) => {
       send({ type: 'error', message: e.message });
     }
     res.end();
+    return;
+  }
+
+  // ── GET /api/deployed（卸载 Tab 显示当前部署状态） ──
+  if (url === '/api/deployed' && req.method === 'GET') {
+    const deployed = listDeployed();
+    json(res, 200, { deployed, hasScheduler: isDeployed() });
+    return;
+  }
+
+  // ── POST /api/uninstall（SSE 流式进度） ──
+  if (url === '/api/uninstall' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const level = body.level || 'uninject';
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    try {
+      send({ type: 'progress', message: `执行 ${level}...` });
+      let result;
+      if (level === 'uninject') result = await uninject();
+      else if (level === 'deactivate') result = await deactivate();
+      else if (level === 'full') result = await fullUninstall();
+      else throw new Error(`unknown level: ${level}`);
+      send({ type: 'done', report: result });
+    } catch (e) {
+      send({ type: 'error', message: e.message });
+    }
+    res.end();
+    return;
+  }
+
+  // ── POST /api/reinject（恢复去治理） ──
+  if (url === '/api/reinject' && req.method === 'POST') {
+    try {
+      const result = await reinject();
+      json(res, 200, result);
+    } catch (e) {
+      json(res, 500, { ok: false, errors: [e.message] });
+    }
     return;
   }
 
