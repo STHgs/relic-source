@@ -216,6 +216,11 @@
         <div class="radio-desc">⚠️ 上述 + 删引擎/内容库/habits——身份数据将丢失（会先 push）</div>
       </label>
 
+      <div id="harnessSelect" style="margin-top:12px">
+        <div style="font-size:13px; color:var(--muted); margin-bottom:8px">选择要移除的 harness（默认全部）：</div>
+        <div id="harnessCheckboxes" style="display:flex; flex-direction:column; gap:6px"></div>
+      </div>
+
       <div id="fullConfirm" class="hidden" style="margin-top:12px; padding:12px; background:rgba(248,81,73,.1); border:1px solid var(--err); border-radius:var(--radius)">
         <div style="font-size:13px; color:var(--err); margin-bottom:8px">⚠️ 完全卸载将删除你的全部规则和人设</div>
         <input type="text" id="fullConfirmInput" placeholder="输入 YES 确认" style="width:100%; padding:8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; color:var(--text)">
@@ -591,6 +596,15 @@ async function loadDeployed() {
     row.innerHTML = `<div class="env-icon ok">✓</div><div class="env-name">${p.name}</div><div class="env-ver">${p.filePath}</div>`;
     el.appendChild(row);
   }
+  // 渲染 harness 多选 checkbox
+  const cbEl = document.getElementById('harnessCheckboxes');
+  cbEl.innerHTML = '';
+  for (const p of data.deployed) {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; padding:4px 8px; border:1px solid var(--border); border-radius:4px';
+    label.innerHTML = `<input type="checkbox" value="${p.name}" checked style="accent-color:var(--accent)"> ${p.name} <span style="font-size:11px;color:var(--muted);margin-left:auto">${p.filePath}</span>`;
+    cbEl.appendChild(label);
+  }
 }
 
 async function startUninstall() {
@@ -609,10 +623,12 @@ async function startUninstall() {
   fill.style.width = '0%';
 
   try {
+    const checkboxes = document.querySelectorAll('#harnessCheckboxes input[type=checkbox]:checked');
+    const targets = Array.from(checkboxes).map(cb => cb.value);
     const response = await fetch('/api/uninstall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ level: uninstallLevel }),
+      body: JSON.stringify({ level: uninstallLevel, targets }),
     });
     const reader = response.body.getReader();
     const decoder = new TextDecoder();

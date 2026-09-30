@@ -59,7 +59,12 @@ export async function uninject(opts = {}) {
   const removed = [];
   const saved = [];
   const errors = [];
-  const deployed = listDeployed();
+  let deployed = listDeployed();
+
+  if (opts.targets && opts.targets.length > 0) {
+    deployed = deployed.filter(p => opts.targets.includes(p.name));
+    log('selective removal: ' + opts.targets.join(', '));
+  }
 
   if (deployed.length === 0) {
     log('未检测到已部署平台（无 AGENTS.md 需要移除）');
@@ -103,7 +108,10 @@ export async function reinject() {
   if (!existsSync(UNINJECT_BACKUP_DIR)) {
     return { ok: false, restored, errors: ['无备份可恢复（去治理后未执行过）'] };
   }
-  const files = readdirSync(UNINJECT_BACKUP_DIR).filter((f) => f.endsWith('-AGENTS.md'));
+  let files = readdirSync(UNINJECT_BACKUP_DIR).filter((f) => f.endsWith('-AGENTS.md'));
+  if (opts.targets && opts.targets.length > 0) {
+    files = files.filter(f => opts.targets.some(t => f.startsWith(t + '-')));
+  }
   const platforms = {
     DSH: platformPaths(HOME, { env: process.env }).dsh,
     OpenCode: platformPaths(HOME, { env: process.env }).opencode,

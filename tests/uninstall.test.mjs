@@ -90,5 +90,20 @@ describe('U3: reinject restores from backup', () => {
   });
 });
 
+describe('U4: selective uninject by harness targets', () => {
+  it('removes only DSH when targets=["DSH"]', async () => {
+    const r = await uninject({ targets: ['DSH'] });
+    assert.equal(r.ok, true);
+    assert.ok(!existsSync(pjoin(FAKE_HOME, '.dsh', 'AGENTS.md')), 'DSH AGENTS.md should be removed');
+    assert.ok(existsSync(pjoin(FAKE_HOME, '.config', 'opencode', 'AGENTS.md')), 'OpenCode AGENTS.md should remain');
+  });
+  it('removes only OpenCode when targets=["OpenCode"]', async () => {
+    const r = await uninject({ targets: ['OpenCode'] });
+    assert.equal(r.ok, true);
+    assert.ok(existsSync(pjoin(FAKE_HOME, '.dsh', 'AGENTS.md')), 'DSH should remain');
+    assert.ok(!existsSync(pjoin(FAKE_HOME, '.config', 'opencode', 'AGENTS.md')), 'OpenCode should be removed');
+  });
+});
+
 // 清理测试环境
 process.env.HOME = originalHome;

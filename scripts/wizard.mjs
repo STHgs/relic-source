@@ -393,10 +393,11 @@ const server = createServer(async (req, res) => {
     });
     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
     try {
-      send({ type: 'progress', message: `执行 ${level}...` });
+      const targets = body.targets || [];
+      send({ type: 'progress', message: `执行 ${level}${targets.length ? '（' + targets.join(', ') + '）' : ''}...` });
       let result;
-      if (level === 'uninject') result = await uninject();
-      else if (level === 'deactivate') result = await deactivate();
+      if (level === 'uninject') result = await uninject({ targets });
+      else if (level === 'deactivate') result = await deactivate({ targets });
       else if (level === 'full') result = await fullUninstall();
       else throw new Error(`unknown level: ${level}`);
       send({ type: 'done', report: result });
