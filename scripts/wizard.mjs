@@ -296,6 +296,33 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── PWA manifest ──
+  if (url === '/manifest.json') {
+    try {
+      const mf = readFileSync(join(REPO, 'scripts', 'wizard', 'manifest.json'));
+      res.writeHead(200, { 'Content-Type': 'application/manifest+json; charset=utf-8' });
+      res.end(mf);
+    } catch {
+      json(res, 500, { error: 'manifest not found' });
+    }
+    return;
+  }
+
+  // ── PWA 图标 ──
+  if (url.startsWith('/icons/')) {
+    const iconFile = url.split('/').pop();
+    if (iconFile.endsWith('.png')) {
+      try {
+        const icon = readFileSync(join(REPO, 'scripts', 'wizard', 'icons', iconFile));
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        res.end(icon);
+      } catch {
+        res.writeHead(404); res.end();
+      }
+      return;
+    }
+  }
+
   // ── GET /api/check ──
   if (url === '/api/check' && req.method === 'GET') {
     const checks = await checkEnvironment();
@@ -372,6 +399,41 @@ const server = createServer(async (req, res) => {
       send({ type: 'error', message: e.message });
     }
     res.end();
+    return;
+  }
+
+  // ── GET /api/status（状态 Tab：治理状态全景） ──
+  if (url === '/api/status' && req.method === 'GET') {
+    try {
+      const deployed = listDeployed();
+      // 同步账本
+      const lastSync = readLastSync();
+      // 内容库概览
+      let contentOverview = null;
+      try {
+        const policiesRaw = readFileSync(join(DEFAULT_CONTENT, 'policies.yaml'), 'utf8');
+        const { parse: yamlParse } = await import('yaml');
+        const doc = yamlParse(policiesRaw);
+        contentOverview = {
+          permissions: (doc.permissions || []).length,
+          workflows: (doc.workflows || []).length,
+          personas: (doc.personas || []).length,
+          modules: (doc.modules || []).length,
+        };
+      } catch { /* 未部署或解析失败 */ }
+      // 调度器状态
+      let scheduler = 'unknown';
+      if (process.platform !== 'win32') {
+        const r = run('systemctl', ['--user', 'is-active', 'relic-sync.timer']);
+        scheduler = r.ok && r.stdout.trim() === 'active' ? 'active' : 'inactive';
+      } else {
+        const r = run('schtasks', ['/Query', '/TN', 'relic-sync']);
+        scheduler = r.ok ? 'active' : 'inactive';
+      }
+      json(res, 200, { deployed, lastSync, contentOverview, scheduler });
+    } catch (e) {
+      json(res, 500, { error: e.message });
+    }
     return;
   }
 

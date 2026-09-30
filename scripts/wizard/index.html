@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>relic 安装向导</title>
+<title>relic 控制台</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#FFB000">
 <style>
 @font-face{font-family:'VT323';src:url('fonts/VT323.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
 :root{
@@ -145,6 +147,9 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
 .tb-title{color:var(--muted);font-size:17px;margin-left:8px;letter-spacing:.05em}
 .tb-blink{color:var(--accent);font-size:18px;animation:blink 1.1s step-end infinite;text-shadow:var(--glow)}
 
+/* === 状态 Tab 标签 === */
+.eyebrow-label{font-size:15px;color:var(--accent);letter-spacing:.1em;margin-bottom:8px;text-shadow:var(--glow)}
+
 /* === ③ 状态栏 === */
 .statusbar{display:flex;gap:18px;padding:8px 18px;border-top:1px solid var(--border);font-size:15px;color:var(--muted);letter-spacing:.05em}
 .statusbar .rec-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--err);margin-right:4px;animation:rec-pulse 1.6s ease-in-out infinite;vertical-align:middle}
@@ -247,6 +252,18 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
         <div class="tips-content">
           编辑 <code>~/.config/relic-sync/policies.yaml</code><br>
           提交推送后 <b>5 分钟内</b> 所有平台自动生效
+        </div>
+      </div>
+
+      <div class="tips-box" style="background:rgba(255,176,0,.08); border-left:2px solid var(--accent)">
+        <div class="tips-title">📍 安装控制台到桌面</div>
+        <div class="tips-content">
+          独立窗口 + 桌面图标，不再占用浏览器标签页<br>
+          随时回来管理（状态 / 升级 / 卸载 / 恢复）
+          <div style="margin-top:8px">
+            <button class="btn btn-primary" id="btnInstallPWA" onclick="installPWA()" style="display:none">安装 relic 控制台</button>
+            <span id="pwaHint" style="font-size:12px;color:var(--muted)">浏览器地址栏右侧的安装图标 ↗ 也可以</span>
+          </div>
         </div>
       </div>
     </div>
@@ -927,6 +944,32 @@ async function startRestore() {
 // 声明式回调需要全局可访问
 window.loadDeployed = loadDeployed;
 window.loadRestoreStatus = loadRestoreStatus;
+
+// ─── PWA 安装 ────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('btnInstallPWA');
+  if (btn) btn.style.display = 'inline-block';
+});
+
+async function installPWA() {
+  if (!deferredPrompt) {
+    // 浏览器不支持自动提示（Firefox/Safari）——引导用浏览器原生安装
+    alert('请使用浏览器地址栏的"安装应用"功能（Chrome/Edge：地址栏右侧安装图标）');
+    return;
+  }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    const btn = document.getElementById('btnInstallPWA');
+    if (btn) { btn.textContent = '已安装 ✓'; btn.disabled = true; }
+    const hint = document.getElementById('pwaHint');
+    if (hint) hint.textContent = '桌面已出现 relic 图标——点击打开独立窗口';
+  }
+  deferredPrompt = null;
+}
 
 init();
 </script>
