@@ -13,10 +13,9 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { posix, resolve, join as fsJoin } from 'path';
-const join = posix.join;  // 正斜杠标准（路径比较/断言用）
-const dirname = posix.dirname;
-// fsJoin = 原生平台 join（真实文件系统操作用——mkdtempSync 等需要平台正确分隔符）
+import { posix, resolve, join as fsJoin, dirname } from 'path';
+const join = posix.join;  // 正斜杠标准（路径比较/断言用——detect/Set 匹配）
+// dirname/resolve/fsJoin = 原生平台版（真实 fs 路径推导用）
 import { parse, stringify } from 'yaml';
 import { tmpdir } from 'os';
 import { createValidator } from '../src/core/validator.mjs';
