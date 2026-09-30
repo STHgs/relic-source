@@ -62,54 +62,38 @@ export function platformPaths(home, opts = {}) {
   const declared = readDeclaredPaths(opts.contentRepo, env);   // 第 1 层
   const xdg = xdgConfigHome(home, env);                   // 第 2 层（XDG 标准件）
 
-  if (process.platform === 'win32') {
-    return {
-      dsh: [
-        ...(declared.dsh ? [declared.dsh] : []),
-        ...(env.DSH_HOME ? [env.DSH_HOME] : []),
-        `${home}\\.dsh`,
-      ],
-      opencode: [
+  // Unified path construction with path.join (cross-platform separator)
+  const isWin = process.platform === 'win32';
+
+  const dsh = [
+    ...(declared.dsh ? [declared.dsh] : []),
+    ...(env.DSH_HOME ? [env.DSH_HOME] : []),
+    join(home, '.dsh'),
+  ];
+  const omo = [
+    ...(declared.omo ? [declared.omo] : []),
+    ...(env.OMO_HOME ? [env.OMO_HOME] : []),
+    join(home, '.omo'),
+  ];
+  const codex = [
+    ...(declared.codex ? [declared.codex] : []),
+    ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),
+    join(home, '.codex'),
+  ];
+  const opencode = isWin
+    ? [
         ...(declared.opencode ? [declared.opencode] : []),
         ...(env.OPENCODE_CONFIG ? [dirname(env.OPENCODE_CONFIG)] : []),
-        `${home}\\AppData\\Roaming\\opencode`,   // Windows 惯例
-        `${home}\\.config\\opencode`,              // 兜底：官方若走 XDG 风格
-      ],
-      omo: [
-        ...(declared.omo ? [declared.omo] : []),
-        ...(env.OMO_HOME ? [env.OMO_HOME] : []),
-        `${home}\\.omo`,
-      ],
-      codex: [
-        ...(declared.codex ? [declared.codex] : []),
-        ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),   // 官方 env（实证支持）
-        `${home}\\.codex`,                             // win32 home=USERPROFILE（doctor/desktop.rs）
-      ],
-    };
-  }
+        join(home, 'AppData', 'Roaming', 'opencode'),
+        join(home, '.config', 'opencode'),
+      ]
+    : [
+        ...(declared.opencode ? [declared.opencode] : []),
+        ...(env.OPENCODE_CONFIG ? [dirname(env.OPENCODE_CONFIG)] : []),
+        join(xdg, 'opencode'),
+      ];
 
-  return {
-    dsh: [
-      ...(declared.dsh ? [declared.dsh] : []),
-      ...(env.DSH_HOME ? [env.DSH_HOME] : []),
-      `${home}/.dsh`,
-    ],
-    opencode: [
-      ...(declared.opencode ? [declared.opencode] : []),
-      ...(env.OPENCODE_CONFIG ? [dirname(env.OPENCODE_CONFIG)] : []),
-      join(xdg, 'opencode'),                             // XDG 标准解析（~/.config 仅为默认值）
-    ],
-    omo: [
-      ...(declared.omo ? [declared.omo] : []),
-      ...(env.OMO_HOME ? [env.OMO_HOME] : []),
-      `${home}/.omo`,   // 真机事实：OMO 用点目录（非 XDG）；XDG 仅 opencode 验证属实
-    ],
-    codex: [
-      ...(declared.codex ? [declared.codex] : []),
-      ...(env.CODEX_HOME ? [env.CODEX_HOME] : []),     // 官方 env（guides/agents-md 实证）
-      `${home}/.codex`,
-    ],
-  };
+  return { dsh, opencode, omo, codex };
 }
 
 /**

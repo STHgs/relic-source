@@ -16,11 +16,7 @@ import { execSync } from 'child_process';
 import { runSync, deployGuardHook } from '../src/core/sync-core.mjs';
 
 const scratch = mkdtempSync(join(tmpdir(), 'relic-sync-test-'));
-const sh = (cmd, cwd) => {
-  // 平台无关：win 用 shell:true，posix 直接执行
-  const r = require('child_process').execSync(cmd, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32' });
-  return r;
-};
+const sh = (cmd, cwd) => execSync(cmd, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 const exec = (cmd, cwd) => {
   try { return { ok: true, stdout: sh(cmd, cwd), stderr: '' }; }
   catch (e) { return { ok: false, stdout: e.stdout || '', stderr: e.stderr || e.message }; }
