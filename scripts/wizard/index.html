@@ -180,7 +180,8 @@
     <div class="screen hidden" id="scr-upgrade">
       <div class="tabs">
         <div class="tab disabled">安装（已部署）</div>
-        <div class="tab active">升级</div>
+        <div class="tab active" style="cursor:pointer" onclick="showScreen('upgrade')">升级</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('uninstall')">卸载</div>
       </div>
       <div class="version-row">
         <div><div class="version-label">当前版本</div><div class="version-value" id="curVer">...</div></div>
@@ -195,8 +196,8 @@
     <div class="screen hidden" id="scr-uninstall">
       <div class="tabs">
         <div class="tab disabled">安装（已部署）</div>
-        <div class="tab disabled">升级</div>
-        <div class="tab active">卸载</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('upgrade')">升级</div>
+        <div class="tab active" style="cursor:pointer" onclick="showScreen('uninstall')">卸载</div>
       </div>
       <h2 style="font-size:16px; margin-bottom:8px">当前部署</h2>
       <div id="uninstallDeployedList" style="margin-bottom:16px"></div>
@@ -666,7 +667,14 @@ const originalShowScreen = showScreen;
 showScreen = function(name) {
   originalShowScreen(name);
   document.getElementById('btnUninstall').classList.toggle('hidden', name !== 'uninstall');
+  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade' && name !== 'uninstall');
   if (name === 'uninstall') loadDeployed();
+  // 更新所有 Tab 的 active 状态
+  document.querySelectorAll('.tabs .tab').forEach(t => {
+    const isUpgrade = t.textContent.includes('升级') && name === 'upgrade';
+    const isUninstall = t.textContent.includes('卸载') && name === 'uninstall';
+    t.classList.toggle('active', isUpgrade || isUninstall);
+  });
 };
 
 init();
