@@ -15,6 +15,7 @@ import { spawn } from 'child_process';
 import { run, userHome } from '../src/core/exec.mjs';
 import { giteeWhoami, giteeCreateRepo, giteeRepoExists, getProvider } from '../src/core/provider.mjs';
 import { listDeployed, uninject, reinject, deactivate, fullUninstall } from '../src/core/uninstall-core.mjs';
+import { ensureHabitsStore } from '../src/core/habits.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HOME = userHome();
@@ -191,6 +192,7 @@ async function* deployPipeline(config) {
 
   // ── Step 3: 首次 sync（部署治理） ──
   yield { step: 3, status: 'active', message: '部署治理规则 (sync + generate)...' };
+  ensureHabitsStore();  // Q5: 预创建 habit 库（治"不存在报错"）
   wizardPreSyncClean(contentDir);  // 向导专用：清理脏状态再 sync
   const syncR = run('npm', ['run', 'sync', '--', '--no-gate'], { cwd: REPO });
   if (!syncR.ok) throw new Error(`sync 失败：${syncR.stderr}`);

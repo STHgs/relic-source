@@ -7,6 +7,8 @@
 // workflow 详细步骤留在 modules/ 下不渲染进 AGENTS.md；risk_levels 是跨模块合并视图（无单一文件可指），常驻骨架
 // =============================================================================
 
+import { readHabits, topEntries, detectSolidifyCandidates } from '../core/habits.mjs';
+
 /**
  * 把一条 permission 的 patterns 格式化为表格单元。
  * @param {object} p
@@ -121,17 +123,39 @@ export function renderAgentsMd(policies) {
     lines.push('');
   }
 
-  // 学习与适应（骨架：每轮自主学习的机制指令——人工奖励信号驱动，符号策略增量）
-  lines.push('## 学习与适应（每轮生效）');
+  // 学习与适应 v2（骨架：重计算下放 sync 管线——agent 只做事件触发的轻动作）
+  lines.push('## 学习与适应（v2：分层记忆）');
   lines.push('');
-  lines.push('1. 每轮对话中观察用户偏好信号——显式（"简洁点 / 用表格 / 以后都这样"）与隐式（反复修改你的输出格式、总跳过某类内容、固定用语习惯）。');
-  lines.push('2. 发现偏好 → 本轮起立即调整输出（无需确认）；同主题新偏好覆盖旧偏好。');
-  lines.push('3. 落盘判据：只记"对未来对话有用"、且 ①助手人设（声明层）未覆盖 ②无法从环境（代码/git/目录）推导 的偏好；非每轮必写。');
-  lines.push('4. 持久化：追加到 `~/.config/relic-habits/learned.yaml`（不存在则创建）。条目含 type（style|feedback|workflow|reference）、观察、依据（何轮何信号）、时间戳；同主题覆盖更新；上限 50 条（超限淘汰最久未命中）；文件超 25KB 时输出告警并截断加载。');
-  lines.push('5. 每个 session 首轮输出前 Read 该文件（存在则加载应用）。');
+  lines.push('### 当前最强偏好（常驻注入）');
+  lines.push('');
+  const habits = readHabits();
+  const top = topEntries(habits.entries);
+  if (top.length > 0) {
+    lines.push('| 偏好 | 依据 | 命中 |');
+    lines.push('|---|---|---|');
+    for (const e of top) {
+      lines.push('| ' + e.observation + ' | ' + (e.evidence || '').slice(0, 60) + ' | ' + (e.hits || 1) + ' |');
+    }
+    lines.push('');
+  }
+  lines.push('### 机制（你的职责极轻——重计算由 relic sync 每 5 分钟离线完成）');
+  lines.push('');
+  lines.push('1. **收尾二值自省**（每轮，无工具调用）：问自己"本轮我是否因用户偏好调整了输出方式"。否 → 跳过全部记忆动作。');
+  lines.push('2. **有感轮写入**（仅自省为"是"的轮次）：向 `~/.config/relic-habits/learned.yaml` 写入/更新一条——判据：对未来有用 且 ①助手人设未覆盖 ②环境推不出。字段：type（style|feedback|workflow|reference）/observation/evidence/recorded/hits/lastHit。同主题新偏好覆盖旧条目（updatedFrom 标注）。');
+  lines.push('3. **顺手 hits 更新**：本轮实际运用了头部某条偏好 → 该条 hits+1、lastHit=今天。');
+  lines.push('4. **全库按需检索**：会话中涉及记忆主题时可 Read 全库（上层头部已常驻注入，通常无需全读）。');
+  lines.push('5. **固化照指令执行**：若下方出现「固化申请指令」——按其点名条目向用户申请（一句话确认），确认后写入同步库 personas.directives 并 commit+push，同时删除 habit 库对应条目。');
   lines.push('6. 优先级：助手人设（声明层）> 本 session 新学习 > 历史学习条目。');
-  lines.push('7. 晋升：用户说"记住 / 固化"某习惯 → 将其写入同步库 policies.yaml 的 personas.directives 并 commit+push（全域 5 分钟生效）。');
   lines.push('');
+  const solidify = detectSolidifyCandidates(habits.entries);
+  if (solidify.length > 0) {
+    lines.push('### ⭐ 固化申请指令（relic sync 检测——本轮收尾执行）');
+    lines.push('');
+    for (const e of solidify) {
+      lines.push('- 向用户申请固化：「' + e.observation + '」（已命中 ' + e.hits + ' 次，建议措辞："我注意到你多轮都' + e.observation + '，要固化为全域规则吗？"）用户确认 → 写入 personas.directives + 删除本条；拒绝 → 保留库中继续观察。');
+    }
+    lines.push('');
+  }
 
   // 模块索引表（workflow 详细步骤留在 modules/ 下，按需 Read——方向 2）
   // 路径 = meta.runtimeRoot（本机 clone 根）+ workflowSources 溯源；缺省时退化为 Glob 提示。

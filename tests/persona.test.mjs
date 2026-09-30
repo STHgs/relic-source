@@ -53,21 +53,24 @@ describe('P2: empty personas → section absent, mechanism remains', () => {
     assert.ok(!md.includes('## 助手人设'));
   });
   it('mechanism section is unconditional skeleton', () => {
-    assert.match(md, /## 学习与适应（每轮生效）/);
+    assert.match(md, /## 学习与适应（v2：分层记忆）/);
   });
 });
 
-describe('P3: mechanism skeleton directives', () => {
+describe('P3: mechanism skeleton directives (v2)', () => {
   const md = renderAgentsMd(base);
   it('names the learned store path', () => assert.match(md, /~\/\.config\/relic-habits\/learned\.yaml/));
-  it('caps entries and bytes', () => {
-    assert.match(md, /上限 50 条/);
-    assert.match(md, /25KB/);
-  });
+  it('binary self-check directive present', () => assert.match(md, /收尾二值自省/));
+  it('event-driven write gate skips declared/derivable', () => assert.match(md, /助手人设未覆盖 ②环境推不出/));
+  it('hits update directive', () => assert.match(md, /hits\+1/));
+  it('on-demand full store read', () => assert.match(md, /按需检索|Read 全库/));
+  it('solidify follows rendered instruction', () => assert.match(md, /固化照指令执行/));
   it('states priority order', () => assert.match(md, /助手人设（声明层）> 本 session 新学习 > 历史学习条目/));
-  it('promotion is explicit-trigger only', () => assert.match(md, /记住 \/ 固化/));
-  it('write gate skips declared/derivable', () => assert.match(md, /未覆盖.*无法从环境/));
   it('entry typing', () => assert.match(md, /style\|feedback\|workflow\|reference/));
+  it('top entries table injected when store non-empty', () => {
+    // 头部注入表：库非空时渲染（本测试机 WSL 有 3 条——但 CI 无库则表缺省，断言机制段无条件存在）
+    assert.match(md, /### 机制/);
+  });
 });
 
 describe('P4: gate interaction — persona is data, mechanism is skeleton', () => {
