@@ -171,7 +171,10 @@ async function* deployPipeline(config) {
     const url = `https://gitee.com/${user}/${name}.git`;
     run('git', ['remote', 'add', 'origin', url], { cwd: contentDir });
     // 令牌入 credential store
-    run('sh', ['-c', `printf 'protocol=https\nhost=gitee.com\nusername=${user}\npassword=${config.token}\n' | git credential approve`]);
+    // 平台无关：直接写 credential store 文件
+    const { appendFileSync } = await import('fs');
+    const credFile = join(HOME, '.git-credentials');
+    appendFileSync(credFile, `https://${user}:${config.token}@gitee.com\n`);
     const pushR = run('git', ['push', '-u', 'origin', 'main'], { cwd: contentDir });
     if (!pushR.ok) throw new Error(`push 失败（令牌已存）：${pushR.stderr}`);
   }

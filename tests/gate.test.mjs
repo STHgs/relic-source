@@ -35,15 +35,21 @@ describe('G1: gateCheck three states (probe injected)', () => {
   });
 });
 
-describe('G2: probeSignature real process (posix pgrep)', () => {
+describe('G2: probeSignature real process', () => {
   it('finds this very test process signature', () => {
     // node --test 进程的命令行含 "node"；用 node 自身作为被探测"进程"
     const found = probeSignature('node --test');
     assert.equal(typeof found, 'boolean');
   });
-  it('nonexistent signature -> false (posix)', () => {
-    if (process.platform === 'win32') return;  // win wmic 探测在此环境不可测
-    assert.equal(probeSignature('definitely-not-running-xyz-9x8'), false);
+  it('nonexistent signature -> false (platform-aware)', () => {
+    // posix=pgrep / win=wmic；两者都应能正确返回"不存在"
+    // （win 的 wmic 可能不存在 → probeSignature 内部保守放行=true，也是正确行为）
+    const found = probeSignature('definitely-not-running-xyz-9x8');
+    assert.equal(typeof found, 'boolean');
+    if (process.platform !== 'win32') {
+      assert.equal(found, false);  // posix 上 pgrep 确定找不到
+    }
+    // win 上 wmic 不存在时返回 true（保守放行）——不断言，只确认不抛
   });
 });
 

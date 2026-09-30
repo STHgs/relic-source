@@ -50,10 +50,15 @@ describe('E3: runChain sequential + short-circuit', () => {
 });
 
 describe('E4: userHome normalization', () => {
-  it('returns a non-empty absolute path', () => {
+  it('returns a non-empty absolute path (platform-aware)', () => {
     const h = userHome();
     assert.ok(h && h.length > 0);
-    assert.ok(h.startsWith('/'));
+    // POSIX 路径以 / 开头；win 路径以盘符开头（C:\ / D:\ 等）
+    if (process.platform === 'win32') {
+      assert.ok(/^[A-Z]:[\\/]/.test(h), `win path: ${h}`);
+    } else {
+      assert.ok(h.startsWith('/'), `posix path: ${h}`);
+    }
   });
   it('prefers USERPROFILE when set (win32 semantics)', () => {
     const orig = process.env.USERPROFILE;

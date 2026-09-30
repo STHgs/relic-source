@@ -129,7 +129,10 @@ if (provider.id === 'github') {
   if (!created.ok) die('Gitee 建库失败：' + created.reason);
   gitAt(['remote', 'add', 'origin', provider.repoUrl(giteeUser, NAME)], PATH_);
   // 令牌入 credential store（首次 push 免交互；后续 fetch/push 全自动）
-  run('sh', ['-c', `printf 'protocol=https\nhost=gitee.com\nusername=${giteeUser}\npassword=${giteeToken}\n' | git credential approve`]);
+  // 平台无关：直接写 credential store 文件（不走 sh 管道）
+  const credFile = join(HOME, '.git-credentials');
+  const credLine = `https://${giteeUser}:${giteeToken}@gitee.com\n`;
+  appendFileSync(credFile, credLine);
   if (!gitAt(['push', '-u', 'origin', 'main'], PATH_).ok) die('push 到 Gitee 失败（令牌已存 credential store，可重跑）');
 }
 

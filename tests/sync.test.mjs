@@ -16,7 +16,11 @@ import { execSync } from 'child_process';
 import { runSync, deployGuardHook } from '../src/core/sync-core.mjs';
 
 const scratch = mkdtempSync(join(tmpdir(), 'relic-sync-test-'));
-const sh = (cmd, cwd) => execSync(cmd, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+const sh = (cmd, cwd) => {
+  // 平台无关：win 用 shell:true，posix 直接执行
+  const r = require('child_process').execSync(cmd, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+  return r;
+};
 const exec = (cmd, cwd) => {
   try { return { ok: true, stdout: sh(cmd, cwd), stderr: '' }; }
   catch (e) { return { ok: false, stdout: e.stdout || '', stderr: e.stderr || e.message }; }
@@ -33,13 +37,13 @@ before(() => {
   const seed = join(scratch, 'seed');
   mkdirSync(seed);
   sh('git init -b main .', seed);
-  sh('git config user.email t@t && git config user.name t', seed);
+  sh('git config user.email t@t', seed); sh('git config user.name t', seed);
   writeFileSync(join(seed, 'README.md'), 'v1\n');
-  sh('git add -A && git commit -m v1', seed);
-  sh(`git remote add origin ${origin} && git push -q origin main`, seed);
+  sh('git add -A', seed); sh('git commit -m v1', seed);
+  sh(`git remote add origin ${origin}`, seed); sh(`git push -q origin main`, seed);
   clone1 = join(scratch, 'clone1');
   sh(`git clone -q ${origin} ${clone1}`, scratch);
-  sh('git config user.email t@t && git config user.name t', clone1);
+  sh('git config user.email t@t', clone1); sh('git config user.name t', clone1);
 });
 
 after(() => { rmSync(scratch, { recursive: true, force: true }); });
@@ -86,10 +90,10 @@ describe('S3: diverged local -> refuse force-sync', () => {
   it('aborts at diverged stage', async () => {
     // 本地造一个远端没有的提交，再让远端前进 → 分叉
     writeFileSync(join(clone1, 'local-only.txt'), 'x');
-    sh('git add -A && git commit -m local-divergence', clone1);
+    sh('git add -A', clone1); sh('git commit -m local-divergence', clone1);
     const seed = join(scratch, 'seed');
     writeFileSync(join(seed, 'README.md'), 'v3\n');
-    sh('git add -A && git commit -m v3 && git push -q origin main', seed);
+    sh('git add -A', seed); sh('git commit -m v3', seed); sh('git push -q origin main', seed);
     const r = await runSync(makeSync(clone1, async () => ({ ok: true, written: [], errors: [] })));
     assert.equal(r.ok, false);
     assert.equal(r.stage, 'diverged');
