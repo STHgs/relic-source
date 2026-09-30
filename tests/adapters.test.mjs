@@ -22,6 +22,8 @@ import omoAdapter from '../src/adapters/omo.mjs';
 import dshAdapter from '../src/adapters/dsh.mjs';
 import codexAdapter from '../src/adapters/codex.mjs';
 
+const realPlatform = process.platform;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = resolve(__dirname, 'fixtures');
 const goodYaml = readFileSync(resolve(FIXTURES, 'policies-good.yaml'), 'utf8');
@@ -135,7 +137,9 @@ describe('A6b: dsh round-trip stability', () => {
   });
 });
 
-describe('A6c: dsh adapter.detect()', () => {
+describe('A6c: dsh adapter.detect() (posix behavior)', () => {
+  beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('dsh detects when ~/.dsh dir present', () => {
     const home = '/fake';
     const env = fakeEnv(new Set([join(home, '.dsh')]), home);
@@ -167,6 +171,8 @@ describe('A6d: dsh adapter.install() dryRun', () => {
 // ─── A1: content-equality short-circuit (unchanged → skip) ───────────────
 // 验证内容未变时不产生 .bak、不写盘——源头消除冗余备份。
 describe('A7: install unchanged → skip (A1 content-equality)', () => {
+  beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   let scratch;
   beforeEach(() => { scratch = mkdtempSync(join(tmpdir(), 'relic-a1-')); });
   afterEach(() => { rmSync(scratch, { recursive: true, force: true }); });
@@ -244,7 +250,9 @@ describe('A8b: codex round-trip stability', () => {
   });
 });
 
-describe('A8c: codex detect (env isolated)', () => {
+describe('A8c: codex detect (env isolated, posix behavior)', () => {
+  beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('detects when ~/.codex dir present', () => {
     const home = '/fake';
     const env = fakeEnv(new Set([join(home, '.codex')]), home);
@@ -263,7 +271,9 @@ describe('A8c: codex detect (env isolated)', () => {
   });
 });
 
-describe('A8d: codex install dryRun + unchanged skip', () => {
+describe('A8d: codex install dryRun + unchanged skip (posix behavior)', () => {
+  beforeEach(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   const home = '/nonexistent-dry-run-path';
   it('dryRun returns skipped, no written, no errors', () => {
     const r = codexAdapter.install({ 'AGENTS.md': '# x' }, { home, dryRun: true, env: {} });

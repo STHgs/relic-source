@@ -20,50 +20,50 @@ const saved = {};
 const realPlatform = process.platform;
 
 describe('PL1: layer-4 convention fallback (default env)', () => {
-  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
-  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
+  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('opencode resolves to ~/.config/opencode (XdG default)', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: {} });
-    assert.deepEqual(p.opencode, [join('/home/u', '.config', 'opencode')]);
+    assert.deepEqual(p.opencode, ['/home/u/.config/opencode']);
   });
   it('dsh/omo/codex use dotfile conventions', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: {} });
-    assert.deepEqual(p.dsh, [join('/home/u', '.dsh')]);
-    assert.deepEqual(p.omo, [join('/home/u', '.omo')]);   // OMO 真机=点目录（非 XDG）
-    assert.deepEqual(p.codex, [join('/home/u', '.codex')]);
+    assert.deepEqual(p.dsh, ['/home/u/.dsh']);
+    assert.deepEqual(p.omo, ['/home/u/.omo']);   // OMO 真机=点目录（非 XDG）
+    assert.deepEqual(p.codex, ['/home/u/.codex']);
   });
 });
 
 describe('PL2: layer-2 env overrides', () => {
-  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
-  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
+  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('DSH_HOME takes priority over convention', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { DSH_HOME: '/custom/dsh' } });
-    assert.deepEqual(p.dsh, ['/custom/dsh', join('/home/u', '.dsh')]);
+    assert.deepEqual(p.dsh, ['/custom/dsh', '/home/u/.dsh']);
   });
   it('OPENCODE_CONFIG dir becomes top opencode candidate', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { OPENCODE_CONFIG: '/custom/oc/opencode.json' } });
     assert.equal(p.opencode[0], '/custom/oc');
-    assert.ok(p.opencode[1].includes('.config') && p.opencode[1].includes('opencode'));
+    assert.ok(p.opencode[1].endsWith('.config/opencode'));
   });
   it('XDG_CONFIG_HOME reroots opencode only (omo is dotdir fact)', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { XDG_CONFIG_HOME: '/xdg/root' } });
-    assert.deepEqual(p.opencode, [join('/xdg/root', 'opencode')]);
-    assert.deepEqual(p.omo, [join('/home/u', '.omo')]);
+    assert.deepEqual(p.opencode, ['/xdg/root/opencode']);
+    assert.deepEqual(p.omo, ['/home/u/.omo']);
   });
   it('CODEX_HOME takes priority over convention', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { CODEX_HOME: '/custom/codex' } });
-    assert.deepEqual(p.codex, ['/custom/codex', join('/home/u', '.codex')]);
+    assert.deepEqual(p.codex, ['/custom/codex', '/home/u/.codex']);
   });
   it('relative XDG_CONFIG_HOME ignored (spec violation)', () => {
     const p = platformPaths('/home/u', { contentRepo: '/nonexistent-repo', env: { XDG_CONFIG_HOME: 'relative/path' } });
-    assert.ok(p.opencode[0].includes('.config') && p.opencode[0].includes('opencode'));
+    assert.ok(p.opencode[0].includes('/home/u/.config/opencode'));
   });
 });
 
 describe('PL3: layer-1 declared paths (content repo json)', () => {
-  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
-  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
+  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('declared dsh/opencode/omo lead the candidate lists', () => {
     const repo = mkdtempSync(join(tmpdir(), 'relic-paths-declared-'));
     try {
@@ -82,27 +82,27 @@ describe('PL3: layer-1 declared paths (content repo json)', () => {
       writeFileSync(join(repo, 'harness-paths.json'), JSON.stringify({ dsh: '/declared/dsh' }));
       const p = platformPaths('/home/u', { contentRepo: repo });
       assert.equal(p.dsh[0], '/declared/dsh');
-      assert.deepEqual(p.opencode, [join('/home/u', '.config', 'opencode')]);
+      assert.deepEqual(p.opencode, ['/home/u/.config/opencode']);
     } finally { rmSync(repo, { recursive: true, force: true }); }
   });
   it('missing declaration file -> pure convention (no throw)', () => {
     const repo = mkdtempSync(join(tmpdir(), 'relic-paths-empty-'));
     try {
       const p = platformPaths('/home/u', { contentRepo: repo });
-      assert.deepEqual(p.dsh, [join('/home/u', '.dsh')]);
+      assert.deepEqual(p.dsh, ['/home/u/.dsh']);
     } finally { rmSync(repo, { recursive: true, force: true }); }
   });
 });
 
 describe('PL4: precedence declared > env > convention', () => {
-  beforeEach(() => { saved.DSH_HOME = process.env.DSH_HOME; process.env.DSH_HOME = '/env/dsh'; });
-  afterEach(() => { if (saved.DSH_HOME === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = saved.DSH_HOME; });
+  beforeEach(() => { saved.DSH_HOME = process.env.DSH_HOME; process.env.DSH_HOME = '/env/dsh'; Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { if (saved.DSH_HOME === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = saved.DSH_HOME; Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('declared beats env beats convention', () => {
     const repo = mkdtempSync(join(tmpdir(), 'relic-paths-pre-'));
     try {
       writeFileSync(join(repo, 'harness-paths.json'), JSON.stringify({ dsh: '/declared/dsh' }));
       const p = platformPaths('/home/u', { contentRepo: repo });
-      assert.deepEqual(p.dsh, ['/declared/dsh', '/env/dsh', join('/home/u', '.dsh')]);
+      assert.deepEqual(p.dsh, ['/declared/dsh', '/env/dsh', '/home/u/.dsh']);
     } finally { rmSync(repo, { recursive: true, force: true }); }
   });
 });
@@ -117,14 +117,14 @@ describe('PL5: firstExisting probing order', () => {
 });
 
 describe('PL6: corrupt declaration tolerated', () => {
-  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });
-  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } });
+  beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }); });
+  afterEach(() => { for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; } Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true }); });
   it('broken json -> convention fallback (no throw)', () => {
     const repo = mkdtempSync(join(tmpdir(), 'relic-paths-bad-'));
     try {
       writeFileSync(join(repo, 'harness-paths.json'), '{ this is not json');
       const p = platformPaths('/home/u', { contentRepo: repo });
-      assert.deepEqual(p.dsh, [join('/home/u', '.dsh')]);
+      assert.deepEqual(p.dsh, ['/home/u/.dsh']);
     } finally { rmSync(repo, { recursive: true, force: true }); }
   });
 });
