@@ -80,6 +80,23 @@ async function checkEnvironment() {
   return checks;
 }
 
+/** 向导专用：sync 前自动清理内容库脏状态（备份文件 + 未提交改动） */
+function wizardPreSyncClean(contentDir) {
+  // 1. 删除 .bak 备份文件（产物，非用户内容）
+  const entries = readdirSync(contentDir, { recursive: true });
+  for (const e of entries) {
+    if (typeof e === 'string' && e.includes('.bak.')) {
+      try { rmSync(join(contentDir, e), { force: true }); } catch {}
+    }
+  }
+  // 2. 自动提交剩余未提交改动（向导是显式用户操作，安全）
+  const status = run('git', ['status', '--porcelain'], { cwd: contentDir });
+  if (status.ok && status.stdout.trim() !== '') {
+    run('git', ['add', '-A'], { cwd: contentDir });
+    run('git', ['commit', '-m', 'wizard: auto-commit before deploy (user-initiated)'], { cwd: contentDir });
+  }
+}
+
 // ─── 部署管线（generator，每步 yield 进度） ────────────────────────────────
 
 /**
@@ -143,6 +160,7 @@ async function* deployPipeline(config) {
 
   // ── Step 3: 首次 sync（部署治理） ──
   yield { step: 3, status: 'active', message: '部署治理规则 (sync + generate)...' };
+  wizardPreSyncClean(contentDir);  // 向导专用：清理脏状态再 sync
   const syncR = run('npm', ['run', 'sync', '--', '--no-gate'], { cwd: REPO });
   if (!syncR.ok) throw new Error(`sync 失败：${syncR.stderr}`);
   yield { step: 3, status: 'done', message: '治理规则已部署' };
@@ -204,6 +222,7 @@ async function* upgradePipeline() {
   yield { step: 4, status: 'done', message: '测试全绿' };
 
   yield { step: 5, status: 'active', message: '重新部署... (sync)' };
+  wizardPreSyncClean(DEFAULT_CONTENT);  // 同上
   const syncR = run('npm', ['run', 'sync', '--', '--no-gate'], { cwd: REPO });
   if (!syncR.ok) throw new Error(`sync 失败：${syncR.stderr}`);
   yield { step: 5, status: 'done', message: '部署完成' };

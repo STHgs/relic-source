@@ -103,7 +103,7 @@ for (const ent of readdirSync(seedModules, { withFileTypes: true })) {
   mkdirSync(join(PATH_, 'modules', ent.name), { recursive: true });
   copyFileSync(join(seedModules, ent.name, 'module.yaml'), join(PATH_, 'modules', ent.name, 'module.yaml'));
 }
-writeFileSync(join(PATH_, '.gitignore'), '.last-sync\n.relic-deploy\n');
+writeFileSync(join(PATH_, '.gitignore'), '.last-sync\n.relic-deploy\n*.bak.*\n');
 
 // ---- 5. engine.lock（锁引擎版本）----
 const engineCommit = gitAt(['rev-parse', 'HEAD'], REPO).out.trim();
