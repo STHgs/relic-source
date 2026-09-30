@@ -1,9 +1,9 @@
 @echo off
 rem ============================================================
-rem  relic-setup.cmd — relic 一键安装引导（Windows PowerShell）
+rem  relic-setup.cmd — relic one-click setup (Windows PowerShell)
 rem ============================================================
-rem  用户从 Gitee/GitHub 网页下载此文件后双击即可完成全部部署。
-rem  流程：检测/安装 Node.js + Git → clone relic-source → 启动向导
+rem  Download from web, double-click to run. Full deploy: env check + clone + wizard.
+rem  Flow: detect/install Node.js + Git -> clone relic-source -> launch wizard
 rem ============================================================
 
 setlocal enabledelayedexpansion
@@ -11,8 +11,8 @@ title relic 安装引导
 color 0b
 echo.
 echo  ╔══════════════════════════════════════════════════╗
-echo  ║         ◇ relic  一键安装引导                     ║
-echo  ║         AI Agent 治理系统                         ║
+echo  ║         ◇ relic  SETUP                     ║
+echo  ║         AI Agent Governance System                         ║
 echo  ╚══════════════════════════════════════════════════╝
 echo.
 
@@ -21,7 +21,7 @@ where pwsh >nul 2>&1
 if %errorlevel% neq 0 (
     where powershell >nul 2>&1
     if %errorlevel% neq 0 (
-        echo  [错误] 未找到 PowerShell，无法继续。
+        echo  [错误] PowerShell not found. Cannot continue.
         pause
         exit /b 1
     )
@@ -90,7 +90,7 @@ if %errorlevel% neq 0 (
 
 if %errorlevel% neq 0 (
     echo.
-    echo  [错误] 安装过程中出现问题，请查看上方日志。
+    echo  [错误] Setup failed. Check logs above.
     pause
 )
 
