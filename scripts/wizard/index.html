@@ -315,7 +315,7 @@ function showScreen(name) {
   if (idx >= 0) step = idx + 1;
 
   // 按钮（各画面专属：安装步进用 上一步/下一步；完成用 完成；升级/卸载用各自按钮）
-  const isInstallFlow = !['upgrade', 'uninstall'].includes(name);
+  const isInstallFlow = !['upgrade', 'uninstall', 'restore'].includes(name);
   document.getElementById('btnPrev').style.visibility = (isInstallFlow && step > 1) ? 'visible' : 'hidden';
   document.getElementById('btnNext').style.display = (isInstallFlow && step < 5) ? '' : 'none';
   document.getElementById('btnDone').classList.toggle('hidden', name !== 'done');
