@@ -24,8 +24,7 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
       rgba(255,176,0,.03) 0px,   rgba(255,176,0,.03) 1px,   /* 亮线（琥珀微光）*/
       rgba(0,0,0,.35)   2px,     rgba(0,0,0,.35)   4px);    /* 暗线（CRT 缝隙）*/
     mix-blend-mode:multiply}
-.scan-band{position:fixed;left:0;right:0;height:200px;z-index:9996;pointer-events:none;background:linear-gradient(to bottom,transparent,rgba(255,176,0,.12) 50%,transparent);animation:crt-scan 7s linear infinite}
-@keyframes crt-scan{0%{transform:translateY(-160px)}100%{transform:translateY(100vh)}}
+
 @keyframes crt-flicker{0%,100%{opacity:1}93%{opacity:.97}95%{opacity:1}97%{opacity:.99}}
 .wizard{animation:crt-flicker 6s infinite}
 
@@ -135,12 +134,57 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
 .error-banner{padding:10px 14px;background:rgba(224,68,48,.1);border:1px solid var(--err);border-radius:var(--radius);margin-bottom:12px;font-size:16px;color:var(--err);display:none}
 .error-banner.show{display:block}
 .hidden{display:none!important}
+
+/* === ① 标题栏 === */
+.titlebar{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);background:rgba(255,176,0,.03)}
+.tb-dots{display:flex;gap:7px}
+.tb-dot{width:13px;height:13px;border-radius:50%;box-shadow:0 0 4px rgba(255,176,0,.15)}
+.tb-dot.r{background:#e04430;box-shadow:0 0 6px rgba(224,68,48,.5)}
+.tb-dot.y{background:#c4841c;box-shadow:0 0 6px rgba(196,132,28,.5)}
+.tb-dot.g{background:#7ab648;box-shadow:0 0 6px rgba(122,182,72,.5)}
+.tb-title{color:var(--muted);font-size:17px;margin-left:8px;letter-spacing:.05em}
+.tb-blink{color:var(--accent);font-size:18px;animation:blink 1.1s step-end infinite;text-shadow:var(--glow)}
+
+/* === ③ 状态栏 === */
+.statusbar{display:flex;gap:18px;padding:8px 18px;border-top:1px solid var(--border);font-size:15px;color:var(--muted);letter-spacing:.05em}
+.statusbar .rec-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--err);margin-right:4px;animation:rec-pulse 1.6s ease-in-out infinite;vertical-align:middle}
+@keyframes rec-pulse{0%,100%{opacity:1;box-shadow:0 0 6px rgba(224,68,48,.6)}50%{opacity:.3;box-shadow:0 0 2px rgba(224,68,48,.2)}}
+
+/* === ⑥ 噪点颗粒（SVG feTurbulence） === */
+.noise-layer{position:fixed;inset:0;z-index:9995;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:noise-shift .35s steps(4) infinite}
+@keyframes noise-shift{0%{background-position:0 0}25%{background-position:-60px 40px}50%{background-position:40px -60px}75%{background-position:-40px -40px}100%{background-position:0 0}}
+
+/* === 扫频三改：双光带 + 非线性速度 + 亮度脉动 === */
+.scan-band{position:fixed;left:0;right:0;height:190px;z-index:9996;pointer-events:none;background:linear-gradient(to bottom,transparent,rgba(255,176,0,.13) 50%,transparent)}
+.scan-band.a{animation:crt-scan-a 8s cubic-bezier(.4,0,.6,1) infinite}
+.scan-band.b{height:130px;opacity:.5;animation:crt-scan-b 13s cubic-bezier(.35,.1,.65,.9) infinite}
+@keyframes crt-scan-a{
+  0%{transform:translateY(-190px);opacity:0}
+  8%{opacity:.7}
+  50%{transform:translateY(50vh);opacity:1;filter:brightness(1.3)}
+  92%{opacity:.6}
+  100%{transform:translateY(100vh);opacity:0}
+}
+@keyframes crt-scan-b{
+  0%{transform:translateY(100vh);opacity:0}
+  15%{opacity:.4}
+  50%{transform:translateY(30vh);opacity:.8}
+  85%{opacity:.3}
+  100%{transform:translateY(-130px);opacity:0}
+}
 </style>
 </head>
 <body>
 
-<div class="scan-band"></div>
+<div class="noise-layer"></div>
+<div class="scan-band a"></div>
+<div class="scan-band b"></div>
 <div class="wizard">
+  <div class="titlebar">
+    <div class="tb-dots"><div class="tb-dot r"></div><div class="tb-dot y"></div><div class="tb-dot g"></div></div>
+    <span class="tb-title">relic@install:~$</span>
+    <span class="tb-blink">▊</span>
+  </div>
   <div class="header">
     <div class="logo">◇ relic</div>
     <div class="step-ind" id="stepInd"></div>
@@ -280,6 +324,13 @@ body::after{content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;b
 
   </div>
 
+  <div class="statusbar">
+    <span>[relic v2.3]</span>
+    <span>[amber-CRT]</span>
+    <span>[<span class="rec-dot"></span>REC]</span>
+    <span id="sbScreen">[env]</span>
+  </div>
+
   <div class="footer">
     <button class="btn btn-secondary" id="btnPrev" onclick="nav(-1)">← 上一步</button>
     <div style="display:flex; gap:8px">
@@ -350,6 +401,8 @@ const SCREENS = {
 // ─── 屏幕切换（声明式驱动） ─────────────────────────────────────────
 function showScreen(name) {
   currentScreen = name;
+  const sb = document.getElementById('sbScreen');
+  if (sb) sb.textContent = '[' + name + ']';
   const cfg = SCREENS[name] || {};
 
   // 显隐画面
