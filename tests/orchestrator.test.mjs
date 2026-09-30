@@ -10,7 +10,8 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { posix } from 'path';
+const join = posix.join;  // 正斜杠标准（与 paths.mjs posix.join 对齐）
 import { stringify } from 'yaml';
 import { generate } from '../src/orchestrator/generate.mjs';
 import { pipeline } from '../src/index.mjs';

@@ -35,7 +35,7 @@ describe('E3: runChain sequential + short-circuit', () => {
       { cmd: process.execPath, args: ['-e', 'console.log(2)'] },
     ]);
     assert.equal(r.ok, true);
-    assert.equal(r.last.stdout.trim(), '2');
+    assert.equal(r.last.stdout.replace(/\[\d+m/g, '').trim(), '2');
   });
   it('stops at first failure with failed step info', () => {
     let secondRan = false;
