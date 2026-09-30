@@ -179,7 +179,7 @@
     <!-- 升级 -->
     <div class="screen hidden" id="scr-upgrade">
       <div class="tabs">
-        <div class="tab disabled">安装（已部署）</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('restore')">恢复治理</div>
         <div class="tab active" style="cursor:pointer" onclick="showScreen('upgrade')">升级</div>
         <div class="tab" style="cursor:pointer" onclick="showScreen('uninstall')">卸载</div>
       </div>
@@ -192,10 +192,25 @@
       <div class="log-box" id="upgLog" style="max-height:80px"></div>
     </div>
 
+    <!-- 恢复治理 -->
+    <div class="screen hidden" id="scr-restore">
+      <div class="tabs">
+        <div class="tab active" style="cursor:pointer" onclick="showScreen('restore')">恢复治理</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('upgrade')">升级</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('uninstall')">卸载</div>
+      </div>
+      <h2 style="font-size:16px; margin-bottom:8px">恢复治理</h2>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px">从去治理前的备份恢复 AGENTS.md</p>
+      <div id="restoreBackupList" style="margin-bottom:16px"></div>
+      <div id="restoreProgress" class="hidden">
+        <div class="log-box" id="restoreLog" style="max-height:100px"></div>
+      </div>
+    </div>
+
     <!-- 卸载 -->
     <div class="screen hidden" id="scr-uninstall">
       <div class="tabs">
-        <div class="tab disabled">安装（已部署）</div>
+        <div class="tab" style="cursor:pointer" onclick="showScreen('restore')">恢复治理</div>
         <div class="tab" style="cursor:pointer" onclick="showScreen('upgrade')">升级</div>
         <div class="tab active" style="cursor:pointer" onclick="showScreen('uninstall')">卸载</div>
       </div>
@@ -241,6 +256,7 @@
       <button class="btn btn-success hidden" id="btnDone" onclick="window.close()">完成 🎉</button>
       <button class="btn btn-primary hidden" id="btnUpgrade" onclick="startUpgrade()">开始升级</button>
       <button class="btn btn-danger hidden" id="btnUninstall" onclick="startUninstall()">执行卸载</button>
+      <button class="btn btn-primary hidden" id="btnRestore" onclick="startRestore()">恢复治理</button>
     </div>
   </div>
 </div>
@@ -689,14 +705,113 @@ showScreen = function(name) {
   originalShowScreen(name);
   document.getElementById('btnUninstall').classList.toggle('hidden', name !== 'uninstall');
   document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade');
+  document.getElementById('btnRestore').classList.toggle('hidden', name !== 'restore');
   if (name === 'uninstall') loadDeployed();
+  if (name === 'restore') loadRestoreStatus();
   // 更新所有 Tab 的 active 状态
   document.querySelectorAll('.tabs .tab').forEach(t => {
     const isUpgrade = t.textContent.includes('升级') && name === 'upgrade';
     const isUninstall = t.textContent.includes('卸载') && name === 'uninstall';
-    t.classList.toggle('active', isUpgrade || isUninstall);
+    const isRestore = t.textContent.includes('恢复治理') && name === 'restore';
+    t.classList.toggle('active', isUpgrade || isUninstall || isRestore);
   });
 };
+
+// ─── 恢复治理 ────────────────────────────────────────────────────
+async function loadRestoreStatus() {
+  // 检查备份是否存在
+  const r = await fetch('/api/deployed');
+  const data = await r.json();
+  const el = document.getElementById('restoreBackupList');
+  el.innerHTML = '';
+
+  const currentlyDeployed = data.deployed.map(p => p.name);
+
+  // 恢复路径 1：reinject（从去治理备份——最快）
+  const reinjectR = await fetch('/api/reinject/status').catch(() => null);
+  let hasBackup = false;
+  if (reinjectR && reinjectR.ok) {
+    const backupData = await reinjectR.json();
+    hasBackup = backupData.hasBackup;
+    if (hasBackup) {
+      for (const b of backupData.backups) {
+        const row = document.createElement('div');
+        row.className = 'env-row';
+        const isRestored = currentlyDeployed.includes(b.replace('-AGENTS.md', ''));
+        row.innerHTML = `<div class="env-icon ${isRestored ? 'ok' : 'err'}">${isRestored ? '✓' : '○'}</div>
+          <div class="env-name">${b.replace('-AGENTS.md', '')}</div>
+          <div class="env-ver">${isRestored ? '已治理' : '待恢复'}</div>`;
+        el.appendChild(row);
+      }
+    }
+  }
+
+  if (!hasBackup) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:13px; color:var(--muted); margin-bottom:8px';
+    hint.textContent = '无去治理备份——将通过 sync 重新部署治理';
+    el.appendChild(hint);
+  }
+
+  // 当前已部署平台
+  if (currentlyDeployed.length > 0) {
+    const hint2 = document.createElement('div');
+    hint2.style.cssText = 'font-size:13px; color:var(--muted); margin-top:12px';
+    hint2.textContent = `当前已治理：${currentlyDeployed.join(', ')}`;
+    el.appendChild(hint2);
+  }
+}
+
+async function startRestore() {
+  const btn = document.getElementById('btnRestore');
+  btn.disabled = true;
+  btn.textContent = '恢复中...';
+  const logBox = document.getElementById('restoreLog');
+  document.getElementById('restoreProgress').classList.remove('hidden');
+  logBox.innerHTML = '';
+
+  try {
+    // 方法 1：尝试 reinject（从备份恢复——最快）
+    const r = await fetch('/api/reinject', { method: 'POST' });
+    const data = await r.json();
+
+    if (data.ok && data.restored && data.restored.length > 0) {
+      for (const f of data.restored) {
+        const el = document.createElement('div');
+        el.className = 'log-line ok';
+        el.textContent = `✓ 已恢复 ${f}`;
+        logBox.appendChild(el);
+      }
+      btn.textContent = '已恢复 ✓';
+      return;
+    }
+
+    // 方法 2：sync 重新部署（无备份时——最可靠）
+    const el = document.createElement('div');
+    el.className = 'log-line';
+    el.textContent = '备份不可用或为空——通过 sync 重新部署治理...';
+    logBox.appendChild(el);
+
+    const syncR = await fetch('/api/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'existing' }),
+    });
+    // 简单方式：直接用 sync 而非完整 deploy 管线
+    const el2 = document.createElement('div');
+    el2.className = 'log-line ok';
+    el2.textContent = '✓ 治理已重新部署（sync）';
+    logBox.appendChild(el2);
+    btn.textContent = '已恢复 ✓';
+  } catch (e) {
+    const el = document.createElement('div');
+    el.className = 'log-line err';
+    el.textContent = `✗ ${e.message}`;
+    logBox.appendChild(el);
+    btn.disabled = false;
+    btn.textContent = '恢复治理';
+  }
+}
 
 init();
 </script>

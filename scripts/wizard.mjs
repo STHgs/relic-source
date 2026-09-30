@@ -408,10 +408,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── GET /api/reinject/status（恢复画面显示备份状态） ──
+  if (url === '/api/reinject/status' && req.method === 'GET') {
+    const { readdirSync: rd } = await import('fs');
+    const backupDir = join(HOME, '.local', 'state', 'relic', 'uninject-backup');
+    const hasBackup = existsSync(backupDir);
+    const backups = hasBackup
+      ? rd(backupDir).filter((f) => f.endsWith('-AGENTS.md'))
+      : [];
+    json(res, 200, { hasBackup, backups });
+    return;
+  }
+
   // ── POST /api/reinject（恢复去治理） ──
   if (url === '/api/reinject' && req.method === 'POST') {
     try {
-      const result = await reinject();
+      let result = await reinject();
+      // reinject 恢复数为 0 时（无备份/已恢复）→ 走 sync 重新部署
+      if (!result.restored || result.restored.length === 0) {
+        const syncR = run('npm', ['run', 'sync', '--', '--no-gate'], { cwd: REPO });
+        if (syncR.ok) {
+          result = { ...result, ok: true, restored: ['(via sync — 重新部署治理)'] };
+        } else {
+          result = { ...result, errors: [...(result.errors || []), 'sync 兜底也失败: ' + (syncR.stderr || '').slice(0, 200)] };
+        }
+      }
       json(res, 200, result);
     } catch (e) {
       json(res, 500, { ok: false, errors: [e.message] });
