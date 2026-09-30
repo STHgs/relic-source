@@ -304,34 +304,80 @@ async function init() {
   showScreen('env');
 }
 
-// ─── 屏幕切换 ────────────────────────────────────────────────────
+// ─── 画面配置（声明式——每个画面自带按钮/指示器/回调） ────────────────
+const SCREENS = {
+  env:       { stepper: true,  buttons: ['prev','next'], stepNum: 1 },
+  identity:  { stepper: true,  buttons: ['prev','next'], stepNum: 2 },
+  token:     { stepper: true,  buttons: ['prev','next'], stepNum: 3 },
+  deploy:    { stepper: true,  buttons: [],               stepNum: 4 },
+  done:      { stepper: true,  buttons: ['done'],         stepNum: 5 },
+  upgrade:   { stepper: false, buttons: ['upgrade'],      label: '版本升级' },
+  uninstall: { stepper: false, buttons: ['uninstall'],   label: '卸载',  onLoad: 'loadDeployed' },
+  restore:   { stepper: false, buttons: ['restore'],     label: '恢复治理', onLoad: 'loadRestoreStatus' },
+};
+
+// ─── 屏幕切换（声明式驱动） ─────────────────────────────────────────
 function showScreen(name) {
   currentScreen = name;
+  const cfg = SCREENS[name] || {};
+
+  // 显隐画面
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   const el = document.getElementById('scr-' + name);
   if (el) el.classList.remove('hidden');
 
+  // 步骤号（安装流程）
   const idx = screens.indexOf(name);
   if (idx >= 0) step = idx + 1;
 
-  // 按钮（各画面专属：安装步进用 上一步/下一步；完成用 完成；升级/卸载用各自按钮）
-  const isInstallFlow = !['upgrade', 'uninstall', 'restore'].includes(name);
-  document.getElementById('btnPrev').style.visibility = (isInstallFlow && step > 1) ? 'visible' : 'hidden';
-  document.getElementById('btnNext').style.display = (isInstallFlow && step < 5) ? '' : 'none';
-  document.getElementById('btnDone').classList.toggle('hidden', name !== 'done');
-  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade');
+  // 指示器：安装流程显示步进点，非安装显示画面标签
+  const stepInd = document.getElementById('stepInd');
+  if (cfg.stepper && idx >= 0) {
+    renderStepInd(idx);
+  } else {
+    stepInd.innerHTML = '<span class="step-label">' + (cfg.label || '') + '</span>';
+  }
 
-  renderStepInd(name === 'upgrade' ? -1 : step - 1);
+  // 按钮：白名单制（每个画面只显示自己声明的按钮）
+  const show = new Set(cfg.buttons || []);
+  document.getElementById('btnPrev').style.visibility = show.has('prev') ? 'visible' : 'hidden';
+  document.getElementById('btnNext').style.display = show.has('next') ? '' : 'none';
+  document.getElementById('btnDone').classList.toggle('hidden', !show.has('done'));
+  document.getElementById('btnUpgrade').classList.toggle('hidden', !show.has('upgrade'));
+  document.getElementById('btnUninstall').classList.toggle('hidden', !show.has('uninstall'));
+  document.getElementById('btnRestore').classList.toggle('hidden', !show.has('restore'));
 
-  // 按钮 label
-  if (step === 1) document.getElementById('btnNext').textContent = '下一步 →';
-  else if (step === 2) document.getElementById('btnNext').textContent = identityMode === 'gitee' ? '下一步 →' : '开始部署 →';
-  else if (step === 3) document.getElementById('btnNext').textContent = '校验并部署 →';
+  // 按钮 label（安装流程 2/3 步动态文案）
+  if (show.has('next')) {
+    if (step === 1) document.getElementById('btnNext').textContent = '下一步 →';
+    else if (step === 2) document.getElementById('btnNext').textContent = identityMode === 'gitee' ? '下一步 →' : '开始部署 →';
+    else if (step === 3) document.getElementById('btnNext').textContent = '校验并部署 →';
+  }
+
+  // Tab active 状态（非安装画面的 Tab 高亮）
+  updateTabsActive(name);
+
+  // onLoad 回调
+  if (cfg.onLoad && typeof window[cfg.onLoad] === 'function') {
+    window[cfg.onLoad]();
+  }
+}
+
+function updateTabsActive(name) {
+  document.querySelectorAll('.tabs .tab').forEach(t => {
+    const txt = t.textContent.trim();
+    const isActive =
+      (name === 'upgrade'   && txt.includes('升级')) ||
+      (name === 'uninstall' && txt.includes('卸载')) ||
+      (name === 'restore'   && txt.includes('恢复治理'));
+    t.classList.toggle('active', isActive);
+  });
 }
 
 function nav(dir) {
-  // 仅安装流程画面可步进（升级/卸载画面有自己的按钮，不走 nav）
-  if (!screens.includes(screens[step - 1]) || ['upgrade', 'uninstall'].includes(currentScreen || '')) return;
+  // 声明式 guard：只有 stepper: true 的画面才允许步进
+  const cfg = SCREENS[currentScreen];
+  if (!cfg || !cfg.stepper) return;
   if (dir === 1) {
     if (step === 2 && identityMode === 'existing') {
       // 跳过令牌步骤，直接部署
@@ -357,10 +403,6 @@ function nav(dir) {
 function renderStepInd(active) {
   const el = document.getElementById('stepInd');
   el.innerHTML = '';
-  if (active < 0) {
-    el.innerHTML = '<span class="step-label">版本升级</span>';
-    return;
-  }
   for (let i = 0; i < 5; i++) {
     const d = document.createElement('div');
     d.className = 'step-dot' + (i < active ? ' done' : i === active ? ' active' : '');
@@ -700,22 +742,7 @@ async function startUninstall() {
 }
 
 // Tab 管理更新：已部署时显示三 Tab
-const originalShowScreen = showScreen;
-showScreen = function(name) {
-  originalShowScreen(name);
-  document.getElementById('btnUninstall').classList.toggle('hidden', name !== 'uninstall');
-  document.getElementById('btnUpgrade').classList.toggle('hidden', name !== 'upgrade');
-  document.getElementById('btnRestore').classList.toggle('hidden', name !== 'restore');
-  if (name === 'uninstall') loadDeployed();
-  if (name === 'restore') loadRestoreStatus();
-  // 更新所有 Tab 的 active 状态
-  document.querySelectorAll('.tabs .tab').forEach(t => {
-    const isUpgrade = t.textContent.includes('升级') && name === 'upgrade';
-    const isUninstall = t.textContent.includes('卸载') && name === 'uninstall';
-    const isRestore = t.textContent.includes('恢复治理') && name === 'restore';
-    t.classList.toggle('active', isUpgrade || isUninstall || isRestore);
-  });
-};
+// wrapper 已删除——showScreen 声明式配置统一管理按钮/Tab/回调
 
 // ─── 恢复治理 ────────────────────────────────────────────────────
 async function loadRestoreStatus() {
@@ -812,6 +839,10 @@ async function startRestore() {
     btn.textContent = '恢复治理';
   }
 }
+
+// 声明式回调需要全局可访问
+window.loadDeployed = loadDeployed;
+window.loadRestoreStatus = loadRestoreStatus;
 
 init();
 </script>
