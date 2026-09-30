@@ -31,7 +31,15 @@ relic-sync（你的私有库）    你的内容：规则模块 / 人设 / 工作
 
 ### Windows —— 双击即装
 
-从 [GitHub 仓库页](https://github.com/STHgs/relic-source)（或 [Gitee 镜像](https://gitee.com/sthgs/relic-source)）下载 **`relic-setup.cmd`**，双击运行：
+**下载 relic-setup.cmd**（三选一）：
+
+| 方式 | 操作 |
+|---|---|
+| 网页下载（推荐） | 打开 [仓库文件列表](https://github.com/STHgs/relic-source) → 点击  → 右上角「**Raw**」按钮 → Ctrl+S 保存（注意扩展名保持 ，别被存成 ） |
+| 直链下载 | 浏览器打开 [GitHub raw](https://github.com/STHgs/relic-source/raw/main/relic-setup.cmd) 或 [Gitee raw](https://gitee.com/sthgs/relic-source/raw/main/relic-setup.cmd)（大陆更快），自动触发下载 |
+| 命令行 |  |
+
+下载后**双击运行**：
 
 ```
 自动安装 Node.js + Git（winget）→ 下载引擎 → 打开浏览器向导
